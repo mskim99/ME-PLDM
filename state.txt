@@ -1,0 +1,7 @@
+main_BK
+first_stage_main_CHAOS_ts_32_PD_2_42_batch_2_lr_2e_5_c_128_cond_128
+main (GPU 3) 
+first_stage_main_HCP_PD_2_42_batch_2_lr_1e_5_c_128_cond_128_mask
+main2 (GPU 3) 
+first_stage_main_CHAOS_PD_2_42_batch_2_lr_1e_5_c_128_cond_128_mask
+main_diffusion3 (GPU 3) diffusion_main_CHAOS_PD_2_42_batch_8_lr_5e_5_cond_5_fm_240506_8_z_cat
