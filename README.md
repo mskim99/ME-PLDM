@@ -1,4 +1,4 @@
-## 3DLDM_medical_recon
+## 3DLDM_recon_medical
 
 This project based on PVDM and currently in modification.
 
