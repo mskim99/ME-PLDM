@@ -105,12 +105,13 @@ class DDPM(nn.Module):
         super().__init__()
         assert parameterization in ["eps", "x0"], 'currently only supporting "eps" and "x0"'
         self.parameterization = parameterization
-        print(f"{self.__class__.__name__}: Running in {self.parameterization}-prediction mode")
+        # print(f"{self.__class__.__name__}: Running in {self.parameterization}-prediction mode")
         self.cond_stage_model = None
         self.clip_denoised = clip_denoised
         self.log_every_t = log_every_t
         self.first_stage_key = first_stage_key
         self.image_size = 512
+        # self.image_size = 64
         self.channels = channels
         self.use_positional_encodings = use_positional_encodings
         self.model = model
@@ -323,6 +324,41 @@ class DDPM(nn.Module):
         # img = unnormalize_to_zero_to_one(img)
         return img
 
+    def ddim_sample_no_tqdm(self, shape, cond, mask, source, clip_denoised=True):
+        batch, device, total_timesteps, sampling_timesteps, eta = shape[
+                                                                      0], self.betas.device, self.num_timesteps, self.sampling_timesteps, self.ddim_sampling_eta
+
+        times = torch.linspace(-1, total_timesteps - 1,
+                               steps=sampling_timesteps + 1)  # [-1, 0, 1, 2, ..., T-1] when sampling_timesteps == total_timesteps
+        times = list(reversed(times.int().tolist()))
+        time_pairs = list(zip(times[:-1], times[1:]))  # [(T-1, T-2), (T-2, T-3), ..., (1, 0), (0, -1)]
+
+        img = torch.randn(shape, device=device)
+        for time, time_next in time_pairs:
+            time_cond = torch.full((batch,), time, device=device, dtype=torch.long)
+            self_cond = img.clone()
+
+            pred_noise, x_start, *_ = self.model_predictions(img, cond, time_cond, self_cond, mask=mask, source=source,
+                                                             clip_x_start=clip_denoised)
+
+            if time_next < 0:
+                img = x_start
+                continue
+
+            alpha = self.alphas_cumprod[time]
+            alpha_next = self.alphas_cumprod[time_next]
+
+            sigma = eta * ((1 - alpha / alpha_next) * (1 - alpha_next) / (1 - alpha)).sqrt()
+            c = (1 - alpha_next - sigma ** 2).sqrt()
+
+            noise = torch.randn_like(img)
+
+            img = x_start * alpha_next.sqrt() + \
+                  c * pred_noise + \
+                  sigma * noise
+
+        return img
+
     @torch.no_grad()
     def sample(self, batch_size=8, cond=None, return_intermediates=False, idx_cond=None, mask=None, source=None):
         image_size = self.image_size
@@ -336,11 +372,13 @@ class DDPM(nn.Module):
                                       return_intermediates=return_intermediates)
 
     @torch.no_grad()
-    def sample_3d(self, batch_size=3, channels=1, idx_cond=None, mask=None, source=None):
+    def sample_3d(self, batch_size=3, channels=1, idx_cond=None, mask=None, source=None, tqdm=True):
         image_size = self.image_size
 
-        return self.ddim_sample((batch_size, channels, image_size), idx_cond, mask, source)
-
+        if tqdm:
+            return self.ddim_sample((batch_size, channels, image_size), idx_cond, mask, source)
+        else:
+            return self.ddim_sample_no_tqdm((batch_size, channels, image_size), idx_cond, mask, source)
 
     def q_sample(self, x_start, t, noise=None):
         noise = default(noise, lambda: torch.randn_like(x_start))
@@ -376,7 +414,8 @@ class DDPM(nn.Module):
         else:
             raise NotImplementedError(f"Paramterization {self.parameterization} not yet supported")
 
-        model_out = model_out.view(target.size())
+        target = target.view(model_out.size())
+        # model_out = model_out.view(target.size())
 
         loss = self.get_loss(model_out, target, mean=False).mean(dim=[1, 2])
 

@@ -680,12 +680,24 @@ def get_loaders(rank, imgstr, resolution, timesteps, skip, batch_size=1, n_gpus=
         train_dir_mask = os.path.join(data_location, 'HCP_1200_norm_res_128_s_16_pd_2_mask')
     elif imgstr == 'CT_ORG':
         train_dir = os.path.join(data_location, 'CT-ORG_res_128_norm_s_16')
-    elif imgstr == 'SYNTHRAD2023_PAIR_PD_2':
+    elif imgstr == 'SYNTHRAD2023_PAIR_PD_2_trg_MR':
         train_dir_src = os.path.join(data_location, 'SYNTHRAD2023_res_128_s_16_pd_2/ct')
         train_dir_src_grad = os.path.join(data_location, 'SYNTHRAD2023_res_128_s_16_pd_2/ct_grad')
         train_dir_dst = os.path.join(data_location, 'SYNTHRAD2023_res_128_s_16_pd_2/mr')
         train_dir_dst_grad = os.path.join(data_location, 'SYNTHRAD2023_res_128_s_16_pd_2/mr_grad')
         train_dir_mask = os.path.join(data_location, 'SYNTHRAD2023_res_128_s_16_pd_2/mask')
+    elif imgstr == 'SYNTHRAD2023_PAIR_PD_2_trg_CT':
+        train_dir_src = os.path.join(data_location, 'SYNTHRAD2023_res_128_s_16_pd_2/mr')
+        train_dir_src_grad = os.path.join(data_location, 'SYNTHRAD2023_res_128_s_16_pd_2/mr_grad')
+        train_dir_dst = os.path.join(data_location, 'SYNTHRAD2023_res_128_s_16_pd_2/ct')
+        train_dir_dst_grad = os.path.join(data_location, 'SYNTHRAD2023_res_128_s_16_pd_2/ct_grad')
+        train_dir_mask = os.path.join(data_location, 'SYNTHRAD2023_res_128_s_16_pd_2/mask')
+    elif imgstr == 'SYNTHRAD2023_PAIR_PD_2_res_64':
+        train_dir_src = os.path.join(data_location, 'SYNTHRAD2023_brain_res_64_s_8_pd_1/ct')
+        train_dir_src_grad = os.path.join(data_location, 'SYNTHRAD2023_brain_res_64_s_8_pd_1/ct_grad')
+        train_dir_dst = os.path.join(data_location, 'SYNTHRAD2023_brain_res_64_s_8_pd_1/mr')
+        train_dir_dst_grad = os.path.join(data_location, 'SYNTHRAD2023_brain_res_64_s_8_pd_1/mr_grad')
+        train_dir_mask = os.path.join(data_location, 'SYNTHRAD2023_brain_res_64_s_8_pd_1/mask')
     elif imgstr == 'SYNTHRAD2023_PELVIS_PAIR_PD_2':
         train_dir_src = os.path.join(data_location, 'SYNTHRAD2023_pelvis_res_128_s_16_pd_2/ct')
         train_dir_dst = os.path.join(data_location, 'SYNTHRAD2023_pelvis_res_128_s_16_pd_2/mr')

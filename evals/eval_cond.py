@@ -10,6 +10,60 @@ import os
 import nibabel as nib
 
 
+def z_list_gen(rank, ema_model):
+
+    device = torch.device('cuda', rank)
+    l1_loss = torch.nn.L1Loss()
+    diffusion_model = DDPM(ema_model,
+                           channels=ema_model.diffusion_model.in_channels,
+                           image_size=ema_model.diffusion_model.image_size,
+                           sampling_timesteps=10,
+                           w=0.).to(device)
+
+    z_list = []
+    # cont_loss_value = 0.
+    for idx in range(0, 9):
+        idx_cond = torch.tensor([idx]).to(device)
+        z = diffusion_model.sample_3d(batch_size=1, channels=32, idx_cond=idx_cond, tqdm=False)
+        z_list.append(z.detach())
+
+    return z_list
+
+
+def z_list_gen_src(rank, ema_model, first_stage_model, src, src_grad):
+
+    device = torch.device('cuda', rank)
+    diffusion_model = DDPM(ema_model,
+                           channels=ema_model.diffusion_model.in_channels,
+                           image_size=ema_model.diffusion_model.image_size,
+                           sampling_timesteps=10,
+                           w=0.).to(device)
+
+    z_list = []
+
+    for idx in range(0, src.__len__()):
+        s_p = src[idx].to(device)
+        s_g_p = src_grad[idx].to(device)
+        s_p = s_p[0]
+        s_g_p = s_g_p[0]
+        s_p = rearrange(s_p / 255. + 1e-8, '(b t) c h w -> b c t h w', b=1).float()
+        s_g_p = rearrange(s_g_p + 1e-8, '(b t) c h w -> b c t h w', b=1).float()
+
+        s_p_concat = torch.cat([s_p, s_g_p], dim=1)
+
+        cond_p = torch.tensor(idx).to(device)
+        cond_p = cond_p.unsqueeze(0)
+
+        z_s = first_stage_model.extract(s_p_concat, cond_p)
+
+        idx_cond = torch.tensor([idx]).to(device)
+        z = diffusion_model.sample_3d(batch_size=1, channels=32, idx_cond=idx_cond, source=z_s, tqdm=False)
+        z_list.append(z.detach())
+
+
+    return z_list
+
+
 def test_psnr(rank, model, loader, it, logger=None):
     device = torch.device('cuda', rank)
 
