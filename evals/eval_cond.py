@@ -8,7 +8,10 @@ from losses.ddpm_mask import DDPM
 
 import os
 import nibabel as nib
+import numpy as np
+from skimage.metrics import peak_signal_noise_ratio, structural_similarity, mean_squared_error
 
+import math
 
 def z_list_gen(rank, ema_model):
 
@@ -57,7 +60,7 @@ def z_list_gen_src(rank, ema_model, first_stage_model, src, src_grad):
         z_s = first_stage_model.extract(s_p_concat, cond_p)
 
         idx_cond = torch.tensor([idx]).to(device)
-        z = diffusion_model.sample_3d(batch_size=1, channels=32, idx_cond=idx_cond, source=z_s, tqdm=False)
+        z = diffusion_model.sample_3d(batch_size=1, channels=16, idx_cond=idx_cond, source=z_s, tqdm=False)
         z_list.append(z.detach())
 
 
@@ -290,7 +293,7 @@ def save_image_ddpm_cond(rank, ema_model, decoder, it, logger=None):
             # z_prev = z.clone()
 
 
-def save_image_ddpm_mask(rank, ema_model, first_stage_model, it, loader, logger=None):
+def save_image_ddpm_mask(rank, ema_model, fs_src_model, fs_trg_model, it, loader, logger=None):
     device = torch.device('cuda', rank)
 
     diffusion_model = DDPM(ema_model,
@@ -299,12 +302,18 @@ def save_image_ddpm_mask(rank, ema_model, first_stage_model, it, loader, logger=
                            sampling_timesteps=100,
                            w=0.).to(device)
 
+    fs_src_model.eval()
+    fs_trg_model.eval()
+
+
+    metrics = dict()
+    metrics['MAE'] = AverageMeter()
+    metrics['PSNR'] = AverageMeter()
+    metrics['SSIM'] = AverageMeter()
 
     with torch.no_grad():
 
-        for _, (src, src_grad, _, _, _, cond) in enumerate(loader):
-
-            # m_p_prev = rearrange(torch.zeros(mask[0][0].shape), '(b t) c h w -> b c t h w', b=1).cuda()
+        for num, (src, src_grad, dst, _, _, cond) in enumerate(loader):
 
             for idx in range(0, src.__len__()):
                 idx_cond = torch.tensor([idx]).to(device)
@@ -320,20 +329,45 @@ def save_image_ddpm_mask(rank, ema_model, first_stage_model, it, loader, logger=
                 cond_p = cond[idx].to(device)
                 cond_p = cond_p[0].unsqueeze(0)
 
-                z_s = first_stage_model.extract(s_p_concat, cond_p)
-                # z_m = first_stage_model.extract(m_p, cond_p)
-                z = diffusion_model.sample_3d(batch_size=1, channels=32, idx_cond=idx_cond, source=z_s)
-                z = z.view(1, 32, 2, 16, 16)
-                # z = diffusion_model.sample(batch_size=1, idx_cond=idx_cond, mask=z_m)
+                z_s = fs_src_model.extract(s_p_concat, cond_p)
+                z = diffusion_model.sample_3d(batch_size=1, channels=16, idx_cond=idx_cond, source=z_s)
+                z = z.view(1, 16, 2, 16, 16)
 
-                fake = first_stage_model.decode_from_sample(z, cond=idx_cond).clamp(0, 1).cpu()
+                fake = fs_trg_model.decode_from_sample(z, cond=idx_cond).clamp(0, 1).cpu()
                 fake = rearrange(fake, 'b t c h w -> b t h w c') * 255.
                 fake = fake.type(torch.uint8).cpu().numpy()
                 fake = fake.squeeze()
-                # fake = fake.swapaxes(0, 2)
-                fake_nii = nib.Nifti1Image(fake, None)
-                nib.save(fake_nii, os.path.join(logger.logdir, f'generated_{it}_{idx_cond[0]}.nii.gz'))
 
-                # m_p_prev = m_p.clone()
+                # real = dst[idx].type(torch.uint8).cpu().numpy()
+                real = dst[idx][0].type(torch.uint8).cpu().numpy()
+                real = real.squeeze()
+                real = real.swapaxes(0, 2)
+
+                # fake_eval = fake.reshape(fake.shape[0], -1)
+                # real_eval = real.reshape(real.shape[0], -1)
+
+                # print(fake.shape)
+                # print(real.shape)
+
+                mae_value = math.sqrt(mean_squared_error(fake, real))
+                psnr_value = peak_signal_noise_ratio(fake, real)
+                ssim_value = structural_similarity(fake, real)
+                metrics['MAE'].update(mae_value)
+                metrics['PSNR'].update(psnr_value)
+                metrics['SSIM'].update(ssim_value)
+
+                fake_nii = nib.Nifti1Image(fake, None)
+                real_nii = nib.Nifti1Image(real, None)
+                # nib.save(fake_nii, os.path.join(logger.logdir, f'generated_{it}_{num}_{idx_cond[0]}.nii.gz'))
+                nib.save(fake_nii, os.path.join(logger.logdir, f'generated_{it}_{idx_cond[0]}.nii.gz'))
+                # nib.save(real_nii, os.path.join(logger.logdir, f'real_{it}_{num}_{idx_cond[0]}.nii.gz'))
+                nib.save(real_nii, os.path.join(logger.logdir, f'real_{it}_{idx_cond[0]}.nii.gz'))
+
+            # if num >= 8:
+            print('[EVALUATION] [MAE %f] [PSNR %f] [SSIM %f]' % (metrics['MAE'].average, metrics['PSNR'].average,
+                    metrics['SSIM'].average))
 
             break
+            # exit(0)
+
+    print('Evaluation finished')

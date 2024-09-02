@@ -3,7 +3,8 @@ from torch.utils.data import Dataset, DataLoader
 from torchvision.datasets.folder import make_dataset
 from torchvision.io import read_video
 
-data_location = '/data/jionkim'
+# data_location = '/data/jionkim'
+data_location = '/home/work/jionkim'
 from tools.data_utils import *
 
 import nibabel as nib
@@ -681,17 +682,17 @@ def get_loaders(rank, imgstr, resolution, timesteps, skip, batch_size=1, n_gpus=
     elif imgstr == 'CT_ORG':
         train_dir = os.path.join(data_location, 'CT-ORG_res_128_norm_s_16')
     elif imgstr == 'SYNTHRAD2023_PAIR_PD_2_trg_MR':
-        train_dir_src = os.path.join(data_location, 'SYNTHRAD2023_res_128_s_16_pd_2/ct')
-        train_dir_src_grad = os.path.join(data_location, 'SYNTHRAD2023_res_128_s_16_pd_2/ct_grad')
-        train_dir_dst = os.path.join(data_location, 'SYNTHRAD2023_res_128_s_16_pd_2/mr')
-        train_dir_dst_grad = os.path.join(data_location, 'SYNTHRAD2023_res_128_s_16_pd_2/mr_grad')
-        train_dir_mask = os.path.join(data_location, 'SYNTHRAD2023_res_128_s_16_pd_2/mask')
+        train_dir_src = os.path.join(data_location, 'SYNTHRAD2023_brain_res_128_s_16_pd_2/ct')
+        train_dir_src_grad = os.path.join(data_location, 'SYNTHRAD2023_brain_res_128_s_16_pd_2/ct_grad')
+        train_dir_dst = os.path.join(data_location, 'SYNTHRAD2023_brain_res_128_s_16_pd_2/mr')
+        train_dir_dst_grad = os.path.join(data_location, 'SYNTHRAD2023_brain_res_128_s_16_pd_2/mr_grad')
+        train_dir_mask = os.path.join(data_location, 'SYNTHRAD2023_brain_res_128_s_16_pd_2/mask')
     elif imgstr == 'SYNTHRAD2023_PAIR_PD_2_trg_CT':
-        train_dir_src = os.path.join(data_location, 'SYNTHRAD2023_res_128_s_16_pd_2/mr')
-        train_dir_src_grad = os.path.join(data_location, 'SYNTHRAD2023_res_128_s_16_pd_2/mr_grad')
-        train_dir_dst = os.path.join(data_location, 'SYNTHRAD2023_res_128_s_16_pd_2/ct')
-        train_dir_dst_grad = os.path.join(data_location, 'SYNTHRAD2023_res_128_s_16_pd_2/ct_grad')
-        train_dir_mask = os.path.join(data_location, 'SYNTHRAD2023_res_128_s_16_pd_2/mask')
+        train_dir_src = os.path.join(data_location, 'SYNTHRAD2023_brain_res_128_s_16_pd_2/mr')
+        train_dir_src_grad = os.path.join(data_location, 'SYNTHRAD2023_brain_res_128_s_16_pd_2/mr_grad')
+        train_dir_dst = os.path.join(data_location, 'SYNTHRAD2023_brain_res_128_s_16_pd_2/ct')
+        train_dir_dst_grad = os.path.join(data_location, 'SYNTHRAD2023_brain_res_128_s_16_pd_2/ct_grad')
+        train_dir_mask = os.path.join(data_location, 'SYNTHRAD2023_brain_res_128_s_16_pd_2/mask')
     elif imgstr == 'SYNTHRAD2023_PAIR_PD_2_res_64':
         train_dir_src = os.path.join(data_location, 'SYNTHRAD2023_brain_res_64_s_8_pd_1/ct')
         train_dir_src_grad = os.path.join(data_location, 'SYNTHRAD2023_brain_res_64_s_8_pd_1/ct_grad')
@@ -719,9 +720,9 @@ def get_loaders(rank, imgstr, resolution, timesteps, skip, batch_size=1, n_gpus=
     print(len(testset))
 
     trainset_sampler = InfiniteSampler(dataset=trainset, rank=0, num_replicas=n_gpus, seed=seed)
-    trainloader = DataLoader(trainset, sampler=trainset_sampler, batch_size=batch_size, pin_memory=False, num_workers=4, prefetch_factor=2)
+    trainloader = DataLoader(trainset, sampler=trainset_sampler, batch_size=batch_size, pin_memory=False, num_workers=2, prefetch_factor=2)
     testset_sampler = InfiniteSampler(testset, num_replicas=n_gpus, rank=0, seed=seed)
-    testloader = DataLoader(testset, sampler=testset_sampler, batch_size=batch_size, pin_memory=False, num_workers=4, prefetch_factor=2)
+    testloader = DataLoader(testset, sampler=testset_sampler, batch_size=batch_size, pin_memory=False, num_workers=2, prefetch_factor=2)
 
     return trainloader, trainloader, testloader 
 
