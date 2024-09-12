@@ -294,6 +294,11 @@ def save_image_ddpm_cond(rank, ema_model, decoder, it, logger=None):
 
 
 def save_image_ddpm_mask(rank, ema_model, fs_src_model, fs_trg_model, it, loader, logger=None):
+    if logger is None:
+        log_ = print
+    else:
+        log_ = logger.log
+
     device = torch.device('cuda', rank)
 
     diffusion_model = DDPM(ema_model,
@@ -337,6 +342,7 @@ def save_image_ddpm_mask(rank, ema_model, fs_src_model, fs_trg_model, it, loader
                 fake = rearrange(fake, 'b t c h w -> b t h w c') * 255.
                 fake = fake.type(torch.uint8).cpu().numpy()
                 fake = fake.squeeze()
+                fake = fake.swapaxes(0, 1)
 
                 # real = dst[idx].type(torch.uint8).cpu().numpy()
                 real = dst[idx][0].type(torch.uint8).cpu().numpy()
@@ -358,16 +364,17 @@ def save_image_ddpm_mask(rank, ema_model, fs_src_model, fs_trg_model, it, loader
 
                 fake_nii = nib.Nifti1Image(fake, None)
                 real_nii = nib.Nifti1Image(real, None)
-                # nib.save(fake_nii, os.path.join(logger.logdir, f'generated_{it}_{num}_{idx_cond[0]}.nii.gz'))
-                nib.save(fake_nii, os.path.join(logger.logdir, f'generated_{it}_{idx_cond[0]}.nii.gz'))
-                # nib.save(real_nii, os.path.join(logger.logdir, f'real_{it}_{num}_{idx_cond[0]}.nii.gz'))
-                nib.save(real_nii, os.path.join(logger.logdir, f'real_{it}_{idx_cond[0]}.nii.gz'))
+                nib.save(fake_nii, os.path.join(logger.logdir, f'generated_{it}_{num}_{idx_cond[0]}.nii.gz'))
+                # nib.save(fake_nii, os.path.join(logger.logdir, f'generated_{it}_{idx_cond[0]}.nii.gz'))
+                nib.save(real_nii, os.path.join(logger.logdir, f'real_{it}_{num}_{idx_cond[0]}.nii.gz'))
+                # nib.save(real_nii, os.path.join(logger.logdir, f'real_{it}_{idx_cond[0]}.nii.gz'))
+
+            log_('[EVALUATION] [MAE %f] [PSNR %f] [SSIM %f]' % (metrics['MAE'].average, metrics['PSNR'].average,
+                                                                metrics['SSIM'].average))
 
             # if num >= 8:
-            print('[EVALUATION] [MAE %f] [PSNR %f] [SSIM %f]' % (metrics['MAE'].average, metrics['PSNR'].average,
-                    metrics['SSIM'].average))
-
+                # print('Evaluation finished')
+                # exit(0)
             break
-            # exit(0)
 
     print('Evaluation finished')

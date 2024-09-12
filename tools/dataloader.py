@@ -3,8 +3,9 @@ from torch.utils.data import Dataset, DataLoader
 from torchvision.datasets.folder import make_dataset
 from torchvision.io import read_video
 
-# data_location = '/data/jionkim'
-data_location = '/home/work/jionkim'
+data_location = '/data/jionkim'
+# data_location = '/home/work/jionkim'
+# data_location = '/home/oem/jionkim'
 from tools.data_utils import *
 
 import nibabel as nib
@@ -654,7 +655,7 @@ class Image3DDatasetCondSrcDstMaskGrad(Dataset):
 
         return img_datas_src, img_datas_src_grad, img_datas_dst, img_datas_dst_grad, img_datas_mask, slice_nums
 
-def get_loaders(rank, imgstr, resolution, timesteps, skip, batch_size=1, n_gpus=1, seed=42,  cond=False):
+def get_loaders(rank, imgstr, resolution, timesteps, skip, batch_size=1, n_gpus=1, seed=42,  cond=False, pin_memory=False):
 
     if imgstr == 'CHAOS':
         train_dir = os.path.join(data_location, 'CHAOS_res_128_s_16_c')
@@ -720,9 +721,9 @@ def get_loaders(rank, imgstr, resolution, timesteps, skip, batch_size=1, n_gpus=
     print(len(testset))
 
     trainset_sampler = InfiniteSampler(dataset=trainset, rank=0, num_replicas=n_gpus, seed=seed)
-    trainloader = DataLoader(trainset, sampler=trainset_sampler, batch_size=batch_size, pin_memory=False, num_workers=2, prefetch_factor=2)
+    trainloader = DataLoader(trainset, sampler=trainset_sampler, batch_size=batch_size, pin_memory=pin_memory, num_workers=2, prefetch_factor=2)
     testset_sampler = InfiniteSampler(testset, num_replicas=n_gpus, rank=0, seed=seed)
-    testloader = DataLoader(testset, sampler=testset_sampler, batch_size=batch_size, pin_memory=False, num_workers=2, prefetch_factor=2)
+    testloader = DataLoader(testset, sampler=testset_sampler, batch_size=batch_size, pin_memory=pin_memory, num_workers=2, prefetch_factor=2)
 
     return trainloader, trainloader, testloader 
 
