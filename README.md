@@ -10,8 +10,7 @@ This repository contains the code for Memory-Efficient Partial Latent Diffusion 
 The model architecture is illustrated below:
 
 <p align="center">
-    <img src=assets/network_structure.jpg> 
-    <img src=assets/sub_structure.jpg> 
+    <img src=assets/network_structure.jpg width="90%" height="90%"> 
 </p>
 
 ## Reference
