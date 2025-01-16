@@ -9,6 +9,11 @@ PyTorch implementation of **"Memory-Efficient Partial Latent Diffusion Model for
 This repository contains the code for Memory-Efficient Partial Latent Diffusion Model for Cross-Modality 3D Medical Image Translation. \
 The model architecture is illustrated below:
 
+<p align="center">
+    <img src=assets/network_structure.jpg> 
+    <img src=assets/sub_structure.jpg> 
+</p>
+
 ## Reference
 
 This code is mainly built upon [PVDM](https://github.com/sihyun-yu/PVDM) repositories.
