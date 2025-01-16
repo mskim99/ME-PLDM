@@ -2,7 +2,7 @@
 
 PyTorch implementation of **"Memory-Efficient Partial Latent Diffusion Model for Cross-Modality 3D Medical Image Translation"** 
 
-(The ME-PLDM paper is in the process of being reviewed for CVPR 2025)
+(The ME-PLDM paper is in review process for CVPR 2025)
 
 ## Overview
 
