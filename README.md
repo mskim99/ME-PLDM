@@ -1,7 +1,14 @@
-## ME-PLDM: Memory-Efficient Partial Latent Diffusion Model for Cross-Modality 3D Medical Image Translation
+## ME-PLDM
 
-This project based on PVDM and currently in modification.
+PyTorch implementation of **"Memory-Efficient Partial Latent Diffusion Model for Cross-Modality 3D Medical Image Translation"** 
 
-### Reference
+(The ME-PLDM paper is in the process of being reviewed for CVPR 2025)
 
-Github URL : (https://github.com/sihyun-yu/PVDM/tree/main) [PVDM]
+## Overview
+
+This repository contains the code for Memory-Efficient Partial Latent Diffusion Model for Cross-Modality 3D Medical Image Translation. \
+The model architecture is illustrated below:
+
+## Reference
+
+This code is mainly built upon [PVDM](https://github.com/sihyun-yu/PVDM) repositories.
