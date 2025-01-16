@@ -45,7 +45,7 @@ for folder_path in folder_list:
 
 path = "J:/Dataset/CHAOS_nibabel_norm/*"
 files_list = glob.glob(path)
-s_z = 32
+s_z = 64
 
 for file_path in files_list:
     data_idx = int(os.path.splitext(os.path.splitext(os.path.basename(file_path))[0])[0])
@@ -55,16 +55,16 @@ for file_path in files_list:
     img_data = img.get_fdata()
     # print(img_data.shape)
 
-    img_data = resize(img_data, [128, 128, 122])
+    img_data = resize(img_data, [128, 128, 126])
     # print(img_data.shape)
 
     img_z = img_data.shape[2]
     z_num = int(img_z / s_z)
-    z_num = z_num + 1 # 2 padding
+    # z_num = z_num + 1 # 2 padding
     # print(img_z)
     # print(z_num)
 
-    output_base_path = "J:/Dataset/CHAOS_nibabel_norm_res_128_s_32_pd_2"
+    output_base_path = "J:/Dataset/CHAOS_nibabel_norm_res_128_s_64_pd_2"
     prev_idx = 0
     for i in range (0, z_num):
 

@@ -27,10 +27,10 @@ class DiffusionWrapper(nn.Module):
         self.conditioning_key = conditioning_key
         assert self.conditioning_key in [None, 'concat', 'crossattn', 'hybrid', 'adm']
 
-    def forward(self, x, cond, t, c_m, c_s, c_concat: list = None, c_crossattn: list = None):
+    def forward(self, x, cond, t, c_prev, c_s, c_concat: list = None, c_crossattn: list = None):
         if self.conditioning_key is None:
             # out = self.diffusion_model(x, cond, t, c_x, c_m, lc=192)
-            out = self.diffusion_model(x, cond, t, c_s=c_s, lc=192)
+            out = self.diffusion_model(x, cond, t, c_s=c_s, c_prev=c_prev, lc=192)
         elif self.conditioning_key == 'concat':
             xc = torch.cat([x] + c_concat, dim=1)
             out = self.diffusion_model(xc, t)
@@ -811,17 +811,17 @@ class UNetModel(nn.Module):
         )
 
         self.ff = nn.Sequential(
-            # nn.Linear(1344, 768*2),
-            nn.Linear(1792, 512 * 2), # res 128
-            # nn.Linear(160, 64 * 2), # res 64
+            nn.Linear(1792, 512 * 2), # res 128, 1792 & 2304
+            # nn.Linear(224, 64 * 2), # res 64
             GEGLU(),
             nn.Dropout(dropout),
-            # nn.Linear(768, 768)
             nn.Linear(512, 512) # res 128
             # nn.Linear(64, 64) # res 64
         )
 
-    def forward(self, x, cond=None, timesteps=None, context=None, y=None, c_s=None, lc=0):
+        self.ff_latent = nn.Linear(32, 16)
+
+    def forward(self, x, cond=None, timesteps=None, context=None, y=None, c_s=None, c_prev=None, lc=0):
         """
         Apply the model to an input batch.
         :param x: an [N x C x ...] Tensor of inputs.
@@ -848,8 +848,14 @@ class UNetModel(nn.Module):
         h_cs = c_s.type(self.dtype)
         # print(h.shape)
         # h = h.view(h.size(0), 2, 768)
-        h = h.view(h.size(0), 32, 512)
-        h_cs = h_cs.view(h.size(0), 32, 512)
+        h = h.view(h.size(0), 16, 512)
+        h_cs = h_cs.view(h_cs.size(0), 16, 512)
+
+        # test code
+        # h_cs = h_cs.swapaxes(1, 2)
+        # h_cs = self.ff_latent(h_cs)
+        # h_cs = h_cs.swapaxes(1, 2)
+
         # h = h.view(h.size(0), 32, 64)
         # h_cs = h_cs.view(h.size(0), 32, 64)
         cond = self.label_embedding(cond.long())
@@ -857,8 +863,7 @@ class UNetModel(nn.Module):
         cond = repeat(cond, 'm n -> m n l k', l=16, k=16)
         # cond = repeat(cond, 'm n -> m n l k', l=4, k=8)
 
-
-        ''''
+        '''
         h_xy = h[:, :, 0:16 * 24].view(h.size(0), h.size(1), 16, 24)
         h_yt = h[:, :, 16 * 24:(16 + 8) * 24].view(h.size(0), h.size(1), 8, 24)
         h_xt = h[:, :, (16 + 8) * 24:(16 + 8 + 8) * 24].view(h.size(0), h.size(1), 8, 24)
@@ -878,15 +883,33 @@ class UNetModel(nn.Module):
         h_xy = h[:, :, 0:4 * 8].view(h.size(0), h.size(1), 4, 8)
         h_yt = h[:, :, 4 * 8:(4 + 2) * 8].view(h.size(0), h.size(1), 2, 8)
         h_xt = h[:, :, (4 + 2) * 8:(4 + 2 + 2) * 8].view(h.size(0), h.size(1), 2, 8)
+
+        h_cs_xy = h_cs[:, :, 0:4 * 8].view(h_cs.size(0), h_cs.size(1), 4, 8)
+        h_cs_yt = h_cs[:, :, 4 * 8:(4 + 2) * 8].view(h_cs.size(0), h_cs.size(1), 2, 8)
+        h_cs_xt = h_cs[:, :, (4 + 2) * 8:(4 + 2 + 2) * 8].view(h_cs.size(0), h_cs.size(1), 2, 8)
         '''
 
-        # print(h_xy.shape)
-        # print(h_cs_xy.shape)
-        # print(cond.shape)
+        if c_prev is not None:
+            h_prev = c_prev.type(self.dtype)
+            h_prev = h_prev.view(h_prev.size(0), 16, 512)
 
-        h_xy = torch.cat([h_xy, h_cs_xy, cond], dim=2)
-        h_yt = torch.cat([h_yt, h_cs_yt, cond], dim=2)
-        h_xt = torch.cat([h_xt, h_cs_xt, cond], dim=2)
+            h_prev_xy = h_prev[:, :, 0:16 * 16].view(h_prev.size(0), h_prev.size(1), 16, 16)
+            h_prev_yt = h_prev[:, :, 16 * 16:(16 + 8) * 16].view(h_prev.size(0), h_prev.size(1), 8, 16)
+            h_prev_xt = h_prev[:, :, (16 + 8) * 16:(16 + 8 + 8) * 16].view(h_prev.size(0), h_prev.size(1), 8, 16)
+
+            # print(h_xy.shape)
+            # print(h_cs_xy.shape)
+            # print(h_prev_xy.shape)
+            # print(cond.shape)
+
+            h_xy = torch.cat([h_xy, h_cs_xy, h_prev_xy, cond], dim=2)
+            h_yt = torch.cat([h_yt, h_cs_yt, h_prev_yt, cond], dim=2)
+            h_xt = torch.cat([h_xt, h_cs_xt, h_prev_xt, cond], dim=2)
+        else:
+
+            h_xy = torch.cat([h_xy, h_cs_xy, cond], dim=2)
+            h_yt = torch.cat([h_yt, h_cs_yt, cond], dim=2)
+            h_xt = torch.cat([h_xt, h_cs_xt, cond], dim=2)
 
         for module, input_attn in zip(self.input_blocks, self.input_attns):
             h_xy = module(h_xy, emb, context)

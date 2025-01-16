@@ -229,7 +229,6 @@ class Encoder(nn.Module):
 
         # print(x.shape)
         # print(cond.shape)
-
         x = torch.cat([x, cond], axis=1)
 
         # downsampling
@@ -365,8 +364,6 @@ class Decoder(nn.Module):
         cond = self.label_embedding(cond)
         # print(cond.shape)
         cond = rearrange(cond, 'b (w h c t) -> b c t w h', t=2, w=16, h=16) # 2,16,16 > res 128 128 16
-        # print(cond.shape)
-        # print(z.shape)
 
         # print(z.shape)
         # print(cond.shape)

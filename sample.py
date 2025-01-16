@@ -63,7 +63,7 @@ def main():
         args.ddpmconfig = config.model.params
         args.cond_model = config.model.cond_model
 
-        diffusion_sample(rank=2, args=args)
+        diffusion_sample(rank=4, args=args)
 
     else:
         raise ValueError("Unknown experiment.")

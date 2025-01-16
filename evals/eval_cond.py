@@ -8,10 +8,14 @@ from losses.ddpm_mask import DDPM
 
 import os
 import nibabel as nib
-import numpy as np
 from skimage.metrics import peak_signal_noise_ratio, structural_similarity, mean_squared_error
 
 import math
+
+from ptflops import get_model_complexity_info
+# from fvcore.nn import FlopCountAnalysis, flop_count_table
+
+import time
 
 def z_list_gen(rank, ema_model):
 
@@ -44,6 +48,7 @@ def z_list_gen_src(rank, ema_model, first_stage_model, src, src_grad):
 
     z_list = []
 
+    # z_prev = torch.zeros([1, 16, 4, 16, 16]).cuda()
     for idx in range(0, src.__len__()):
         s_p = src[idx].to(device)
         s_g_p = src_grad[idx].to(device)
@@ -60,9 +65,10 @@ def z_list_gen_src(rank, ema_model, first_stage_model, src, src_grad):
         z_s = first_stage_model.extract(s_p_concat, cond_p)
 
         idx_cond = torch.tensor([idx]).to(device)
-        z = diffusion_model.sample_3d(batch_size=1, channels=16, idx_cond=idx_cond, source=z_s, tqdm=False)
+        z = diffusion_model.sample_3d(batch_size=1, channels=16, idx_cond=idx_cond, source=z_s, prev=None, tqdm=False)
         z_list.append(z.detach())
 
+        # z_prev = z.clone()
 
     return z_list
 
@@ -215,25 +221,29 @@ def save_image_cond(rank, model, loader, it, logger=None):
             print('eval finished')
             return
 
+
 def save_image_cond_mask(rank, model, loader, it, logger=None):
     device = torch.device('cuda', rank)
 
     model.eval()
     with torch.no_grad():
-        for _, (_, dst, _, cond) in enumerate(loader):
+        for _, (real, grad, cond, _) in enumerate(loader):
+        # for _, (real, mask, grad, cond, idx) in enumerate(loader):
 
             # Store previous partitions
             # real_p_prev = torch.zeros(real[0].shape).to(device)
-
-            for r_idx in range(0, dst.__len__()):
-                real_p = dst[r_idx].float().to(device)
+            print('start eval')
+            for r_idx in range(0, real.__len__()):
+                real_p = real[r_idx].float().to(device)
+                grad_p = grad[r_idx].float().to(device)
                 cond_p = cond[r_idx].to(device)
-                real_p = rearrange(real_p / 127.5 - 1, 'b t c h w -> b c t h w')
-                fake, _ = model(real_p, cond_p)
+                real_p = rearrange(real_p / 255. + 1e-8, 'b t c h w -> b c t h w')
+                grad_p = rearrange(grad_p + 1e-8, 'b t c h w -> b c t h w')
+                real_p_concat = torch.cat([real_p, grad_p], dim=1)
+                fake, _ = model(real_p_concat, cond_p)
 
-                fake = rearrange(fake.clamp(0, 1) * 255., '(b t) c h w -> b t h w c', b=real_p.size(0))
-                # fake = rearrange((fake.clamp(-1, 1) + 1) * 127.5, 'b c t h w -> b t c h w', b=real_p.size(0))
-                real_p = real_p.clamp(0, 1) * 255.
+                fake = rearrange((fake.clamp(0, 1)) * 255., 'b c t h w -> b t c h w', b=real_p.size(0))
+                real_p = (real_p.clamp(0, 1)) * 255.
 
                 real_p = real_p.type(torch.uint8).cpu().numpy()
                 fake = fake.type(torch.uint8).cpu().numpy()
@@ -241,14 +251,17 @@ def save_image_cond_mask(rank, model, loader, it, logger=None):
                 real_p = real_p.squeeze()
                 fake = fake.squeeze()
 
-                # print(real_p.shape)
-                # print(fake.shape)
-
                 real_p = real_p.swapaxes(1, 3)
                 fake = fake.swapaxes(1, 3)
 
-                real_nii = nib.Nifti1Image(real_p[1, :, :, :], None)
-                fake_nii = nib.Nifti1Image(fake[1, :, :, :], None)
+                # real_p = real_p.swapaxes(0, 2)
+                # fake = fake.swapaxes(0, 2)
+
+                real_nii = nib.Nifti1Image(real_p[0, :, :, :], None)
+                fake_nii = nib.Nifti1Image(fake[0, :, :, :], None)
+
+                # real_nii = nib.Nifti1Image(real_p, None)
+                # fake_nii = nib.Nifti1Image(fake, None)
 
                 nib.save(real_nii, os.path.join(logger.logdir, f'real_{it}_{cond[r_idx][0]}.nii.gz'))
                 nib.save(fake_nii, os.path.join(logger.logdir, f'generated_{it}_{cond[r_idx][0]}.nii.gz'))
@@ -292,7 +305,6 @@ def save_image_ddpm_cond(rank, ema_model, decoder, it, logger=None):
             nib.save(fake_nii, os.path.join(logger.logdir, f'generated_{it}_{idx_cond[0]}.nii.gz'))
             # z_prev = z.clone()
 
-
 def save_image_ddpm_mask(rank, ema_model, fs_src_model, fs_trg_model, it, loader, logger=None):
     if logger is None:
         log_ = print
@@ -310,7 +322,6 @@ def save_image_ddpm_mask(rank, ema_model, fs_src_model, fs_trg_model, it, loader
     fs_src_model.eval()
     fs_trg_model.eval()
 
-
     metrics = dict()
     metrics['MAE'] = AverageMeter()
     metrics['PSNR'] = AverageMeter()
@@ -318,9 +329,12 @@ def save_image_ddpm_mask(rank, ema_model, fs_src_model, fs_trg_model, it, loader
 
     with torch.no_grad():
 
-        for num, (src, src_grad, dst, _, _, cond) in enumerate(loader):
+        for num, (src, src_grad, dst, _, cond) in enumerate(loader):
 
+            start = time.time()
+            # z_prev = torch.zeros([1, 16, 4, 16, 16]).cuda()
             for idx in range(0, src.__len__()):
+                torch.cuda.empty_cache()
                 idx_cond = torch.tensor([idx]).to(device)
                 s_p = src[idx].to(device)
                 s_g_p = src_grad[idx].to(device)
@@ -335,7 +349,12 @@ def save_image_ddpm_mask(rank, ema_model, fs_src_model, fs_trg_model, it, loader
                 cond_p = cond_p[0].unsqueeze(0)
 
                 z_s = fs_src_model.extract(s_p_concat, cond_p)
-                z = diffusion_model.sample_3d(batch_size=1, channels=16, idx_cond=idx_cond, source=z_s)
+
+                # print(cond_p)
+                # print(s_p_concat.shape)
+                # print(z_s.shape)
+
+                z = diffusion_model.sample_3d(batch_size=1, channels=16, idx_cond=idx_cond, source=z_s, prev=None)
                 z = z.view(1, 16, 2, 16, 16)
 
                 fake = fs_trg_model.decode_from_sample(z, cond=idx_cond).clamp(0, 1).cpu()
@@ -369,12 +388,68 @@ def save_image_ddpm_mask(rank, ema_model, fs_src_model, fs_trg_model, it, loader
                 nib.save(real_nii, os.path.join(logger.logdir, f'real_{it}_{num}_{idx_cond[0]}.nii.gz'))
                 # nib.save(real_nii, os.path.join(logger.logdir, f'real_{it}_{idx_cond[0]}.nii.gz'))
 
+                # z_prev = z.clone()
+
+            done = time.time()
+            elapsed = done - start
+            print(elapsed)
             log_('[EVALUATION] [MAE %f] [PSNR %f] [SSIM %f]' % (metrics['MAE'].average, metrics['PSNR'].average,
                                                                 metrics['SSIM'].average))
-
-            # if num >= 8:
-                # print('Evaluation finished')
-                # exit(0)
+            '''
+            if num >= 32:
+                print('Evaluation finished')
+                exit(0)
+                '''
             break
 
+    print('Evaluation finished')
+
+def prepare_input(resolution):
+    x = torch.FloatTensor(1, 16, 4, 16, 16).cuda()
+    cond = torch.IntTensor([0]).cuda()
+    t = torch.FloatTensor([0]).cuda()
+    c_s = torch.FloatTensor(1, 16, 4, 16, 16).cuda()
+    return dict(x=x, cond=cond, t=t, c_prev=None, c_s=c_s)
+
+
+def prepare_input_ae(resolution):
+    x = torch.FloatTensor(1, 2, 32, 128, 128).cuda()
+    cond = torch.IntTensor([0]).cuda()
+    return dict(input=x, cond=cond)
+
+def ddpm_pf_check(rank, ema_model, fs_src_model, fs_trg_model, it, loader, logger=None):
+    if logger is None:
+        log_ = print
+    else:
+        log_ = logger.log
+
+    device = torch.device('cuda', rank)
+
+    diffusion_model = DDPM(ema_model,
+                           channels=ema_model.diffusion_model.in_channels,
+                           image_size=ema_model.diffusion_model.image_size,
+                           sampling_timesteps=100,
+                           w=0.).to(device)
+
+    fs_src_model.eval()
+    fs_trg_model.eval()
+
+    metrics = dict()
+    metrics['MAE'] = AverageMeter()
+    metrics['PSNR'] = AverageMeter()
+    metrics['SSIM'] = AverageMeter()
+
+    with torch.no_grad():
+
+        macs_fsms, params_fsms = get_model_complexity_info(fs_src_model, (1, 2, 32, 128, 128),
+                                                           input_constructor=prepare_input_ae, as_strings=False,
+                                                           print_per_layer_stat=True,
+                                                           verbose=True)
+        macs_diff, params_diff = get_model_complexity_info(ema_model, (1, 1, 4, 16, 16),
+                                                           input_constructor=prepare_input, as_strings=False,
+                                                           print_per_layer_stat=True,
+                                                           verbose=True)
+
+    print("ptflops (AE) : MACS {} |  PARAM {}".format(macs_fsms, params_fsms))
+    print("ptflops (Diff) : MACS {} |  PARAM {}".format(macs_diff, params_diff))
     print('Evaluation finished')

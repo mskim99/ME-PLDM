@@ -3,7 +3,7 @@ model:
   amp: True
   base_learning_rate: 4.0e-5
   params:
-    embed_dim: 4
+    embed_dim: 16
     label_conc: 128
     lossconfig:
       params:
@@ -11,7 +11,7 @@ model:
 
     ddconfig:
       double_z: False
-      channels: 128
+      channels: 1
       resolution: 128
       timesteps: 16
       skip: 1

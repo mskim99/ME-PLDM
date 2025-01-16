@@ -7,13 +7,12 @@ from models.autoencoder.vit_modules_spade import Encoder, Decoder
 class ViTAutoencoder_SPADE(nn.Module):
     def __init__(self,
                  embed_dim,
-                 ch_mult,
                  ):
         super().__init__()
         self.embed_dim = embed_dim
-        self.encoder = Encoder(ch=128, ch_mult=ch_mult, num_res_blocks=2, dropout=0.0, resamp_with_conv=True, in_channels=3,
+        self.encoder = Encoder(ch=128, ch_mult=(1,2,4,8), num_res_blocks=2, dropout=0.0, resamp_with_conv=True, in_channels=3,
                                resolution=128, z_channels=128) # ch, res, z_channels = 128 ch_mult=(1,2,4,8)
-        self.decoder = Decoder(ch=128, out_ch=1, ch_mult=ch_mult, num_res_blocks=2, dropout=0.0, resamp_with_conv=True,
+        self.decoder = Decoder(ch=128, out_ch=1, ch_mult=(1,2,4,8), num_res_blocks=2, dropout=0.0, resamp_with_conv=True,
                                in_channels=1, resolution=128, z_channels=128) # ch, res, z_channels = 128 ch_mult=(1,2,4,8)
 
         self.quant_conv = torch.nn.Conv3d(128, embed_dim, 1) # 1st = z_channels

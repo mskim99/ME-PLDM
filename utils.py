@@ -21,6 +21,15 @@ class Logger(object):
         if not os.path.exists("/data/jionkim/PVDM_recon/results/"):
             os.mkdir("/data/jionkim/PVDM_recon/results/")
 
+        # if not os.path.exists("/home/work/jionkim/PVDM_recon/results/"):
+            # os.mkdir("/home/work/jionkim/PVDM_recon/results/")
+
+        # if not os.path.exists("/home/oem/jionkim/PVDM_recon/results/"):
+            # os.mkdir("/home/oem/jionkim/PVDM_recon/results/")
+
+        # if not os.path.exists("/home/work/workspace/PVDM_recon/results/"):
+            # os.mkdir("/home/work/workspace/PVDM_recon/results/")
+
         logdir = self._make_dir(fn)
         if not os.path.exists(logdir):
             os.mkdir(logdir)
@@ -34,6 +43,9 @@ class Logger(object):
         # today = datetime.today().strftime("%y%m%d")
         # logdir = f'./results/{fn}/'
         logdir = f'/data/jionkim/PVDM_recon/results/{fn}/'
+        # logdir = f'/home/work/jionkim/PVDM_recon/results/{fn}/'
+        # logdir = f'/home/oem/jionkim/PVDM_recon/results/{fn}/'
+        # logdir = f'/home/work/workspace/PVDM_recon/results/{fn}/'
         return logdir
 
     def set_dir(self, logdir, log_fn='log.txt'):
@@ -105,7 +117,7 @@ def set_random_seed(seed):
 
 def file_name(args):
     fn = f'{args.exp}_{args.id}_{args.data}'
-    fn += f'_{args.seed}'
+    fn += f'_{args.seed}_2'
     return fn
 
 

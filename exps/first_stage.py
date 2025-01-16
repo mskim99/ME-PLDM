@@ -4,7 +4,7 @@ import torch
 
 from tools.trainer_cond_mask import first_stage_train
 from tools.dataloader import get_loaders
-from models.autoencoder.autoencoder_vit_cond_3d import ViTAutoencoder
+from models.autoencoder.autoencoder_spade import ViTAutoencoder_SPADE
 from losses.perceptual import LPIPSWithDiscriminator
 
 from utils import file_name, Logger
@@ -43,6 +43,7 @@ def init_multiprocessing(rank, sync_device):
 
 def first_stage(rank, args):
     device = torch.device('cuda', rank)
+    torch.backends.cudnn.enabled = False
 
     """ ROOT DIRECTORY """
     # if rank == 0:
@@ -51,6 +52,8 @@ def first_stage(rank, args):
     logger.log(args)
     logger.log(f'Log path: {logger.logdir}')
     rootdir = logger.logdir
+    # else:
+        # logger = None
 
     if logger is None:
         log_ = print
@@ -58,33 +61,37 @@ def first_stage(rank, args):
         log_ = logger.log
 
     """ Get Image """
+    # if rank == 0:
     log_(f"Loading dataset {args.data} with resolution {args.res}")
-    train_loader, test_loader, total_vid = get_loaders(rank, args.data, args.res, args.timesteps, args.skip, args.batch_size, args.n_gpus, args.seed, cond=False)
+    train_loader, test_loader, total_vid = get_loaders(args.data, args.res, args.timesteps, True, args.batch_size, args.n_gpus, args.seed, cond=False)
 
     """ Get Model """
+    # if rank == 0:
     log_(f"Generating model")
 
     torch.cuda.set_device(rank)
-    model = ViTAutoencoder(args.embed_dim, args.ddconfig)
+    # model = ViTAutoencoder(args.embed_dim, args.ddconfig)
+    model = ViTAutoencoder_SPADE(embed_dim=16)
     model = model.to(device)
 
     criterion = LPIPSWithDiscriminator(disc_start   = args.lossconfig.params.disc_start,
                                        timesteps    = args.ddconfig.timesteps).to(device)
 
 
-    opt = torch.optim.AdamW(model.parameters(), 
-                             lr=args.lr, 
+    opt = torch.optim.AdamW(model.parameters(),
+                             lr=args.lr,
                              betas=(0.5, 0.9)
                              )
 
-    d_opt = torch.optim.AdamW(list(criterion.discriminator_2d.parameters()) + list(criterion.discriminator_3d.parameters()), 
-                             lr=args.lr, 
+    d_opt = torch.optim.AdamW(list(criterion.discriminator_2d.parameters()) + list(criterion.discriminator_3d.parameters()),
+                             lr=args.lr,
                              betas=(0.5, 0.9))
 
+    # if args.resume and rank == 0:
     if args.resume:
-        model_ckpt = torch.load(os.path.join(args.first_stage_folder, 'model_last.pth'), map_location='cuda:3')
+        model_ckpt = torch.load(os.path.join(args.first_stage_folder, 'model_last.pth'), map_location='cuda:0')
         model.load_state_dict(model_ckpt)
-        opt_ckpt = torch.load(os.path.join(args.first_stage_folder, 'opt.pth'), map_location='cuda:3')
+        opt_ckpt = torch.load(os.path.join(args.first_stage_folder, 'opt.pth'), map_location='cuda:0')
         opt.load_state_dict(opt_ckpt)
 
         del model_ckpt
@@ -98,4 +105,5 @@ def first_stage(rank, args):
     fp = args.amp
     first_stage_train(rank, model, opt, d_opt, criterion, train_loader, test_loader, args.first_stage_folder, fp, logger)
 
+    # if rank == 0:
     torch.save(model.state_dict(), rootdir + f'net_meta.pth')

@@ -10,7 +10,7 @@ import torch
 from torch.cuda.amp import GradScaler, autocast
 
 from utils import AverageMeter
-from evals.eval_cond import test_psnr_mask, save_image_cond_mask, save_image_ddpm_mask, z_list_gen_src
+from evals.eval_cond import save_image_ddpm_mask, z_list_gen_src, save_image_cond_mask
 from models.ema import LitEma
 from einops import rearrange
 
@@ -22,14 +22,11 @@ def latentDDPM(rank, fs_src_model, fs_trg_model, model, opt, criterion, train_lo
     else:
         log_ = logger.log
 
-    # if rank == 0:
     rootdir = logger.logdir
-
     device = torch.device('cuda', rank)
 
     losses = dict()
     losses['diffusion_loss'] = AverageMeter()
-    # losses['cont_loss'] = AverageMeter()
     losses['dist_loss'] = AverageMeter()
     losses['total_loss'] = AverageMeter()
     check = time.time()
@@ -49,24 +46,24 @@ def latentDDPM(rank, fs_src_model, fs_trg_model, model, opt, criterion, train_lo
     fs_trg_model.eval()
     model.train()
 
-    for it, (src, src_grad, dst, dst_grad, mask, cond) in enumerate(train_loader):
+    for it, (src, src_grad, dst, dst_grad, cond) in enumerate(train_loader):
 
-        # it = it + 27250
+        it = it + 61000
 
         z_list_real = []
         diff_loss = 0.
+        # z_prev = torch.zeros([16, 16, 4, 16, 16]).cuda()
+
         for x_idx in range (0, dst.__len__()):
 
             d_p = dst[x_idx].to(device)
             d_g_p = dst_grad[x_idx].to(device)
             s_p = src[x_idx].to(device)
             s_g_p = src_grad[x_idx].to(device)
-            m_p = mask[x_idx].to(device)
             d_p = rearrange(d_p / 255. + 1e-8, 'b t c h w -> b c t h w').float()
             d_g_p = rearrange(d_g_p + 1e-8, 'b t c h w -> b c t h w').float()
             s_p = rearrange(s_p / 255. + 1e-8, 'b t c h w -> b c t h w').float()
             s_g_p = rearrange(s_g_p + 1e-8, 'b t c h w -> b c t h w').float()
-            # m_p = rearrange(m_p + 1e-8, 'b t c h w -> b c t h w').float()
 
             d_p_concat = torch.cat([d_p, d_g_p], dim=1)
             s_p_concat = torch.cat([s_p, s_g_p], dim=1)
@@ -82,8 +79,8 @@ def latentDDPM(rank, fs_src_model, fs_trg_model, model, opt, criterion, train_lo
                     z_s = fs_src_model.extract(s_p_concat, cond_p)
                     z_list_real.append(z_d.detach())
 
-            (diff_loss_part, t), loss_dict = criterion(z_d.float(), cond=cond_p.float(), c_s=z_s.float(), c_m=None)
-            # (loss, t), loss_dict = criterion(z_d.float(), cond=cond_p.float(), c_m=z_m.float())
+            (diff_loss_part, t), loss_dict = criterion(z_d.float(), cond=cond_p.float(), c_s=z_s.float(), c_prev=None)
+            # (diff_loss, t), loss_dict = criterion(z_d.float(), cond=cond_p.float(), c_m=None)
 
             # diff_loss.backward()
             # opt.step()
@@ -92,59 +89,25 @@ def latentDDPM(rank, fs_src_model, fs_trg_model, model, opt, criterion, train_lo
 
             diff_loss += diff_loss_part
 
+            # z_prev = z_d.clone()
+
         diff_loss = diff_loss / float(dst.__len__())
         
         if it % 25 == 0:
-            cont_loss = 0.
             dist_loss = 0.
             z_list_fake = z_list_gen_src(rank, ema_model, fs_src_model, src, src_grad)
 
             for i in range(0, dst.__len__()-1):
-                # value_fake = l1_loss(z_list_fake[i + 1], z_list_fake[i])
-                # cont_loss += value_fake
-                # value_real = l1_loss(z_list_real[i + 1], z_list_real[i])
-                # cont_loss += abs(value_fake - value_real)
-                z_real = torch.reshape(z_list_real[i][0,:,:,:], (1, 16, 512))
+                z_real = torch.reshape(z_list_real[i].mean(axis=0), (1, 16, 512))
                 dist_loss += l1_loss(z_list_fake[i], z_real)
 
-            z_real = torch.reshape(z_list_real[dst.__len__()-1][0, :, :, :], (1, 16, 512))
-            dist_loss += l1_loss(z_list_fake[dst.__len__()-1], z_real)
-
-            # cont_loss = cont_loss / float(x.__len__()-1)
             dist_loss = dist_loss / float(dst.__len__())
-
-            '''
-            for i in range(0, dst.__len__()):
-
-                z_fake = z_list_fake[i].view([32, 2, 16, 16]).unsqueeze(0).float()
-                z_real = z_list_real[i][0].unsqueeze(0).float()
-
-                v_d_fake = fs_trg_model.decode_from_sample(z_fake, cond[i][0].unsqueeze(0).to(device)).detach().clamp(0,1).cpu()
-                v_d_real = fs_trg_model.decode_from_sample(z_real, cond[i][0].unsqueeze(0).to(device)).detach().clamp(0,1).cpu()
- 
-                v_d_real_out = rearrange(v_d_real, 'b t c h w -> b t h w c') * 255.
-                v_d_real_out = v_d_real_out.type(torch.uint8).cpu().numpy()
-                v_d_real_out = v_d_real_out.squeeze()
-                real_nii = nib.Nifti1Image(v_d_real_out, None)
-                nib.save(real_nii, os.path.join(logger.logdir, f'v_d_real_{it}_{cond[i][0]}.nii.gz'))
-
-                v_d_fake_out = rearrange(v_d_fake, 'b t c h w -> b t h w c') * 255.
-                v_d_fake_out = v_d_fake_out.type(torch.uint8).cpu().numpy()
-                v_d_fake_out = v_d_fake_out.squeeze()
-                fake_nii = nib.Nifti1Image(v_d_fake_out, None)
-                nib.save(fake_nii, os.path.join(logger.logdir, f'v_d_fake_{it}_{cond[i][0]}.nii.gz'))
-    
-
-                dist_loss += l1_loss(v_d_fake, v_d_real)
-
-            dist_loss = dist_loss / float(dst.__len__())
-            '''
 
         if it < 10000:
             weight = float(it) * 1. / 10000.
         else:
             weight = 1.
-
+        
         total_loss = (weight * diff_loss + (1. - weight) * dist_loss)
         # total_loss = (diff_loss + dist_loss)
         total_loss.backward()
@@ -163,12 +126,14 @@ def latentDDPM(rank, fs_src_model, fs_trg_model, model, opt, criterion, train_lo
             # if logger is not None and rank == 0:
             if logger is not None:
                 logger.scalar_summary('train/diffusion_loss', losses['diffusion_loss'].average, it)
-                # logger.scalar_summary('train/cont_loss', losses['cont_loss'].average, it)
                 logger.scalar_summary('train/dist_loss', losses['dist_loss'].average, it)
                 logger.scalar_summary('train/total_loss', losses['total_loss'].average, it)
 
                 # log_('[Time %.3f] [Diffusion %f]' %
                      # (time.time() - check, losses['diffusion_loss'].average))
+
+                # log_('[Time %.3f] [Diffusion %f] [Dist %f]' %
+                     # (time.time() - check, losses['diffusion_loss'].average, losses['dist_loss'].average))
 
                 log_('[Time %.3f] [Diffusion %f] [Dist %f] [Weight %f]' %
                      (time.time() - check, losses['diffusion_loss'].average, losses['dist_loss'].average, weight))
@@ -198,9 +163,7 @@ def first_stage_train(rank, model, opt, d_opt, criterion, train_loader, test_loa
     device = torch.device('cuda', rank)
 
     losses = dict()
-    losses['ae_loss'] = AverageMeter()
     losses['L1_loss'] = AverageMeter()
-    losses['d_loss'] = AverageMeter()
     check = time.time()
 
     accum_iter = 3
@@ -209,51 +172,45 @@ def first_stage_train(rank, model, opt, d_opt, criterion, train_loader, test_loa
     l1_criterion = torch.nn.L1Loss()
 
     if fp:
-        # print('fp')
         scaler = GradScaler()
         scaler_d = GradScaler()
 
         try:
             scaler.load_state_dict(torch.load(os.path.join(first_model, 'scaler.pth')))
             scaler_d.load_state_dict(torch.load(os.path.join(first_model, 'scaler_d.pth')))
-
-            scaler = scaler.to(device).to(torch.float64)
-            scaler_d = scaler_d.to(device).to(torch.float64)
         except:
             print("Fail to load scalers. Start from initial point.")
 
     model.train()
     disc_start = criterion.discriminator_iter_start
 
-    for it, (_, dst, _, cond) in enumerate(train_loader):
+    torch.cuda.empty_cache()
+    for it, (x, g, cond, _) in enumerate(train_loader):
 
-        # it = it + 6250
+        it = it + 24750
 
-        for x_idx in range (0, dst.__len__()):
+        torch.cuda.empty_cache()
+        for x_idx in range(0, x.__len__()):
+            batch_size = x[x_idx].size(0)
+            x_p = x[x_idx].to(device)
+            g_p = g[x_idx].to(device)
 
-            batch_size = dst[x_idx].size(0)
-            dst_p = dst[x_idx].to(device)
-            dst_p = rearrange(dst_p / 127.5 - 1, 'b t c h w -> b c t h w').float()
+            x_p = rearrange(x_p / 255. + 1e-8, 'b t c h w -> b c t h w').float()
+            g_p = rearrange(g_p + 1e-8, 'b t c h w -> b c t h w').float()
+
+            x_p_concat = torch.cat([x_p, g_p], dim=1)
 
             cond_p = cond[x_idx].to(device)
 
             if not disc_opt:
                 with autocast():
-                    # x_tilde, vq_loss = model(x)
-                    x_tilde, vq_loss = model(dst_p, cond_p)
-                    x_tilde_ra = rearrange(x_tilde, '(b t) c h w -> b c t h w', b=batch_size)
-                    if it % accum_iter == 0:
-                        model.zero_grad()
+                    x_tilde_ra, vq_loss = model(x_p_concat, cond_p)
+                    model.zero_grad()
 
-                    ae_loss = criterion(vq_loss, dst_p, x_tilde_ra,
-                                        optimizer_idx=0,
-                                        global_step=it)
-                    ae_loss = ae_loss / accum_iter
-
-                    l1_loss = l1_criterion(dst_p, x_tilde_ra)
+                    l1_loss = l1_criterion(x_p, x_tilde_ra)
                     l1_loss = 10. * l1_loss / accum_iter
 
-                    total_loss = ae_loss
+                    total_loss = l1_loss
 
                 scaler.scale(total_loss).backward()
 
@@ -262,7 +219,6 @@ def first_stage_train(rank, model, opt, d_opt, criterion, train_loader, test_loa
                     scaler.update()
 
                 # print(losses)
-                losses['ae_loss'].update(ae_loss.item(), 1)
                 losses['L1_loss'].update(l1_loss.item(), 1)
 
             else:
@@ -271,8 +227,8 @@ def first_stage_train(rank, model, opt, d_opt, criterion, train_loader, test_loa
 
                 with autocast():
                     with torch.no_grad():
-                        x_tilde, vq_loss = model(dst_p)
-                    d_loss = criterion(vq_loss, dst_p,
+                        x_tilde, vq_loss = model(x_p)
+                    d_loss = criterion(vq_loss, x_p,
                                        rearrange(x_tilde, '(b t) c h w -> b c t h w', b=batch_size),
                                        optimizer_idx=1,
                                        global_step=it)
@@ -300,17 +256,13 @@ def first_stage_train(rank, model, opt, d_opt, criterion, train_loader, test_loa
                     disc_opt = True
 
         if it % 250 == 0:
-            psnr = test_psnr_mask(rank, model, test_loader, it, logger)
+            psnr = 0.
 
             if logger is not None:
-                logger.scalar_summary('train/ae_loss', losses['ae_loss'].average, it)
                 logger.scalar_summary('train/L1_loss', losses['L1_loss'].average, it)
-                logger.scalar_summary('train/d_loss', losses['d_loss'].average, it)
-                logger.scalar_summary('test/psnr', psnr, it)
 
-                log_('[Time %.3f] [AELoss %f] [L1Loss %f] [DLoss %f] [PSNR %f]' %
-                    (time.time() - check, losses['ae_loss'].average, losses['L1_loss'].average,
-                    losses['d_loss'].average, psnr))
+                log_('[Time %.3f] [L1Loss %f]' %
+                     (time.time() - check, losses['L1_loss'].average))
 
                 torch.save(model.state_dict(), rootdir + f'model_last.pth')
                 torch.save(criterion.state_dict(), rootdir + f'loss_last.pth')
@@ -320,10 +272,9 @@ def first_stage_train(rank, model, opt, d_opt, criterion, train_loader, test_loa
                 torch.save(scaler_d.state_dict(), rootdir + f'scaler_d.pth')
 
             losses = dict()
-            losses['ae_loss'] = AverageMeter()
             losses['L1_loss'] = AverageMeter()
-            losses['d_loss'] = AverageMeter()
 
-        if it % 1250 == 0:
+        if it % 250 == 0:
+            torch.cuda.empty_cache()
             save_image_cond_mask(rank, model, test_loader, it, logger)
             torch.save(model.state_dict(), rootdir + f'model_{it}.pth')

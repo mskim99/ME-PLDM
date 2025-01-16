@@ -4,10 +4,7 @@ import torch
 
 from tools.trainer_cond_mask import latentDDPM
 from tools.dataloader import get_loaders
-from tools.scheduler import LambdaLinearScheduler
-# from models.autoencoder.autoencoder_vit_cond import ViTAutoencoder
 from models.autoencoder.autoencoder_spade import ViTAutoencoder_SPADE
-# from models.ddpm.unet_mask import UNetModel, DiffusionWrapper
 from models.ddpm.unet_mask_3d import UNetModel, DiffusionWrapper
 from losses.ddpm_mask import DDPM
 
@@ -82,7 +79,7 @@ def diffusion(rank, args):
     """ Get Image """
     # if rank == 0:
     log_(f"Loading dataset {args.data} with resolution {args.res}")
-    train_loader, test_loader, total_vid = get_loaders(rank, args.data, args.res, args.timesteps, args.skip, args.batch_size, args.n_gpus, args.seed, args.cond_model)
+    train_loader, _, test_loader = get_loaders(args.data, args.res, args.timesteps, False, args.batch_size, args.n_gpus, args.seed, args.cond_model)
 
     if args.data == 'SKY':
         cond_prob = 0.2
@@ -94,13 +91,11 @@ def diffusion(rank, args):
     log_(f"Generating model")
 
     torch.cuda.set_device(rank)
-    # first_stage_model = ViTAutoencoder(args.embed_dim, args.ddconfig).to(device)
-    first_stage_model_src = ViTAutoencoder_SPADE(embed_dim=32, ch_mult=(1,2,4,8)).to(device)
-    first_stage_model_trg = ViTAutoencoder_SPADE(embed_dim=32, ch_mult=(1,2,4,4)).to(device)
+    first_stage_model_src = ViTAutoencoder_SPADE(embed_dim=16).to(device)
+    first_stage_model_trg = ViTAutoencoder_SPADE(embed_dim=16).to(device)
 
-    # if rank == 0:
-    first_stage_model_src_ckpt = torch.load(args.first_model_src, map_location='cuda:4')
-    first_stage_model_trg_ckpt = torch.load(args.first_model_trg, map_location='cuda:4')
+    first_stage_model_src_ckpt = torch.load(args.first_model_src, map_location='cuda:2')
+    first_stage_model_trg_ckpt = torch.load(args.first_model_trg, map_location='cuda:2')
     first_stage_model_src.load_state_dict(first_stage_model_src_ckpt)
     first_stage_model_trg.load_state_dict(first_stage_model_trg_ckpt)
     del first_stage_model_src_ckpt
@@ -109,8 +104,8 @@ def diffusion(rank, args):
     unet = UNetModel(**args.unetconfig)
     model = DiffusionWrapper(unet).to(device)
 
-    if os.path.exists(rootdir + f'model_14000.pth'):
-        model_ckpt = torch.load(rootdir + f'model_14000.pth', map_location='cuda:4')
+    if os.path.exists(rootdir + f'model_61000.pth'):
+        model_ckpt = torch.load(rootdir + f'model_61000.pth', map_location='cuda:2')
         model.load_state_dict(model_ckpt)
         ema_model = copy.deepcopy(model)
         print('Model loaded')
@@ -135,7 +130,7 @@ def diffusion(rank, args):
 
     opt          = torch.optim.AdamW(model.parameters(), lr=args.lr)
 
-    latentDDPM(rank, first_stage_model_src, first_stage_model_trg, model, opt, criterion, train_loader, ema_model, logger)
+    latentDDPM(rank, first_stage_model_src, first_stage_model_trg, model, opt, criterion, train_loader, test_loader, ema_model, logger)
 
     # if rank == 0:
     torch.save(model.state_dict(), rootdir + f'net_meta.pth')
