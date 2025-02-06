@@ -45,7 +45,7 @@ for folder_path in folder_list:
 
 path = "J:/Dataset/CHAOS_nibabel_norm/*"
 files_list = glob.glob(path)
-s_z = 64
+s_z = 16
 
 for file_path in files_list:
     data_idx = int(os.path.splitext(os.path.splitext(os.path.basename(file_path))[0])[0])
