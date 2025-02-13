@@ -42,10 +42,20 @@ for folder_path in folder_list:
     nii_save = nib.Nifti1Image(imgs_arr, None)
     nib.save(nii_save, 'J:/Dataset/CHAOS_nibabel_norm_res_128/test/' + folder_path_name + '.nii.gz')
 '''
+ds_path = "/data/jayeon/dataset/QTAB_proc"
+#ds_path = "/data/jayeon/dataset/SynthRAD2023_brain_res_128"
 
-path = "J:/Dataset/CHAOS_nibabel_norm/*"
-files_list = glob.glob(path)
-s_z = 16
+s_z = 16 #블록이 가지는 slice의 개수
+overlap = 2
+direction = 2 # 0,1,2
+
+src_path = os.path.join(ds_path,"t2w_grad/*") #"/data/jayeon/dataset/SynthRAD2023_brain_res_128/ct_grad/*" #"J:/Dataset/CHAOS_nibabel_norm/*"
+tgt_path = os.path.join(ds_path+f"_s_{s_z}_pd_{overlap}", "T2w_grad")
+
+files_list = glob.glob(src_path)
+
+print(len(files_list))
+
 
 for file_path in files_list:
     data_idx = int(os.path.splitext(os.path.splitext(os.path.basename(file_path))[0])[0])
@@ -54,7 +64,7 @@ for file_path in files_list:
     img = nib.load(file_path)
     img_data = img.get_fdata()
     # print(img_data.shape)
-
+    #[128,128,128][2] = 128-overlap
     img_data = resize(img_data, [128, 128, 126])
     # print(img_data.shape)
 
@@ -64,16 +74,15 @@ for file_path in files_list:
     # print(img_z)
     # print(z_num)
 
-    output_base_path = "J:/Dataset/CHAOS_nibabel_norm_res_128_s_64_pd_2"
     prev_idx = 0
     for i in range (0, z_num):
 
         if data_idx > 200:
             break
 
-        output_path = output_base_path + '/' + str(i)
+        output_path = tgt_path + '/' + str(i)
         if not os.path.isdir(output_path):
-            os.mkdir(output_path)
+            os.makedirs(output_path, exist_ok=True)
 
         cur_idx = prev_idx + s_z
 
@@ -83,7 +92,7 @@ for file_path in files_list:
         # print(img_part.shape)
 
         img_part_nib = nib.Nifti1Image(img_part, None)
-        nib.save(img_part_nib, output_base_path + '/' + str(i) + '/' + str(data_idx) + '_' + str(i).zfill(4) + '_s_16.nii.gz')
+        nib.save(img_part_nib, tgt_path + '/' + str(i) + '/' + str(data_idx) + '_' + str(i).zfill(4) + f'_s_{s_z}.nii.gz')
 
         # print(i)
         # print(int(s_z*i/2))
@@ -92,8 +101,10 @@ for file_path in files_list:
 
         print(prev_idx)
         print(cur_idx)
-
-        prev_idx = cur_idx - 2
+        
+        #겹치는 slice
+        
+        prev_idx = cur_idx - overlap
 
     # exit(0)
     print(str(data_idx) + ' finished')

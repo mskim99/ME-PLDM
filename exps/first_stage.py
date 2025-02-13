@@ -5,6 +5,7 @@ import torch
 from tools.trainer_cond_mask import first_stage_train
 from tools.dataloader import get_loaders
 from models.autoencoder.autoencoder_spade import ViTAutoencoder_SPADE
+#from models.autoencoder.autoencoder_vit_cond_3d import ViTAutoencoder
 from losses.perceptual import LPIPSWithDiscriminator
 
 from utils import file_name, Logger
@@ -89,9 +90,10 @@ def first_stage(rank, args):
 
     # if args.resume and rank == 0:
     if args.resume:
-        model_ckpt = torch.load(os.path.join(args.first_stage_folder, 'model_last.pth'), map_location='cuda:0')
+        print(os.path.join(args.first_stage_folder, 'model_last.pth'))
+        model_ckpt = torch.load(os.path.join(args.first_stage_folder, 'model_last.pth'), map_location=f'cuda:{rank}')
         model.load_state_dict(model_ckpt)
-        opt_ckpt = torch.load(os.path.join(args.first_stage_folder, 'opt.pth'), map_location='cuda:0')
+        opt_ckpt = torch.load(os.path.join(args.first_stage_folder, 'opt.pth'), map_location=f'cuda:{rank}')
         opt.load_state_dict(opt_ckpt)
 
         del model_ckpt

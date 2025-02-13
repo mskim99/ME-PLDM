@@ -4,10 +4,11 @@ from torchvision.datasets.folder import make_dataset
 from torchvision.io import read_video
 from itertools import chain
 
-data_location = '/data/jionkim'
+data_location = '/data/jayeon/dataset' #'/data/jionkim'
 # data_location = '/home/work/jionkim'
 # data_location = '/home/oem/jionkim'
 # data_location = "/home/work/workspace/"
+
 from tools.data_utils import *
 
 import nibabel as nib
@@ -213,6 +214,9 @@ class Image3DDataset_AE(Dataset):
         self.samples = make_dataset(image_3d_root, class_to_idx, ('nii.gz',), is_valid_file=None)
         self.samples_grad = make_dataset(image_3d_root_grad, class_to_idx, ('nii.gz',), is_valid_file=None)
 
+        print("Number of samples in original data:", len(self.samples))
+        print("Number of samples in gradient data:", len(self.samples_grad))
+        
         image_3d_list = [x[0] for x in self.samples]
         image_3d_list_grad = [x[0] for x in self.samples_grad]
         vol_num_list = [int(os.path.basename(x[0]).split('_')[0]) for x in self.samples] # Extract volume number from path
@@ -315,92 +319,93 @@ class Image3DDataset_AE(Dataset):
 
 
 def get_loaders(imgstr, resolution, timesteps, ae, batch_size=1, n_gpus=1, seed=42,  cond=False, pin_memory=False):
-
+    direction = 'z'
+    
     if imgstr == 'SYNTHRAD2023_PAIR_PD_2_trg_MR':
-        train_dir_src = os.path.join(data_location, 'SYNTHRAD2023_brain_res_128_s_16_pd_2/ct')
-        train_dir_src_grad = os.path.join(data_location, 'SYNTHRAD2023_brain_res_128_s_16_pd_2/ct_grad')
-        train_dir_dst = os.path.join(data_location, 'SYNTHRAD2023_brain_res_128_s_16_pd_2/mr')
-        train_dir_dst_grad = os.path.join(data_location, 'SYNTHRAD2023_brain_res_128_s_16_pd_2/mr_grad')
+        train_dir_src = os.path.join(data_location, f'SYNTHRAD2023_brain_res_128_s_16_pd_2_drt_{direction}/ct') #
+        train_dir_src_grad = os.path.join(data_location, f'SYNTHRAD2023_brain_res_128_s_16_pd_2_drt_{direction}/ct_grad')
+        train_dir_dst = os.path.join(data_location, f'SYNTHRAD2023_brain_res_128_s_16_pd_2_drt_{direction}/mr')
+        train_dir_dst_grad = os.path.join(data_location, f'SYNTHRAD2023_brain_res_128_s_16_pd_2_drt_{direction}/mr_grad')
     elif imgstr == 'SYNTHRAD2023_PAIR_PD_2_trg_CT':
-        train_dir_src = os.path.join(data_location, 'SYNTHRAD2023_brain_res_128_s_16_pd_2/mr')
-        train_dir_src_grad = os.path.join(data_location, 'SYNTHRAD2023_brain_res_128_s_16_pd_2/mr_grad')
-        train_dir_dst = os.path.join(data_location, 'SYNTHRAD2023_brain_res_128_s_16_pd_2/ct')
-        train_dir_dst_grad = os.path.join(data_location, 'SYNTHRAD2023_brain_res_128_s_16_pd_2/ct_grad')
+        train_dir_src = os.path.join(data_location, f'SYNTHRAD2023_brain_res_128_s_16_pd_2_drt_{direction}/mr')
+        train_dir_src_grad = os.path.join(data_location, f'SYNTHRAD2023_brain_res_128_s_16_pd_2_drt_{direction}/mr_grad')
+        train_dir_dst = os.path.join(data_location, f'SYNTHRAD2023_brain_res_128_s_16_pd_2_drt_{direction}/ct')
+        train_dir_dst_grad = os.path.join(data_location, f'SYNTHRAD2023_brain_res_128_s_16_pd_2_drt_{direction}/ct_grad')
     elif imgstr == 'SYNTHRAD2023_PAIR_S_32_PD_2_trg_MR':
-        train_dir_src = os.path.join(data_location, 'SYNTHRAD2023_brain_res_128_s_32_pd_2/ct')
-        train_dir_src_grad = os.path.join(data_location, 'SYNTHRAD2023_brain_res_128_s_32_pd_2/ct_grad')
-        train_dir_dst = os.path.join(data_location, 'SYNTHRAD2023_brain_res_128_s_32_pd_2/mr')
-        train_dir_dst_grad = os.path.join(data_location, 'SYNTHRAD2023_brain_res_128_s_32_pd_2/mr_grad')
+        train_dir_src = os.path.join(data_location, f'SYNTHRAD2023_brain_res_128_s_32_pd_2_drt_{direction}/ct')
+        train_dir_src_grad = os.path.join(data_location, f'SYNTHRAD2023_brain_res_128_s_32_pd_2_drt_{direction}/ct_grad')
+        train_dir_dst = os.path.join(data_location, f'SYNTHRAD2023_brain_res_128_s_32_pd_2_drt_{direction}/mr')
+        train_dir_dst_grad = os.path.join(data_location, f'SYNTHRAD2023_brain_res_128_s_32_pd_2_drt_{direction}/mr_grad')
     elif imgstr == 'SYNTHRAD2023_PAIR_S_32_PD_2_trg_CT':
-        train_dir_src = os.path.join(data_location, 'SYNTHRAD2023_brain_res_128_s_32_pd_2/mr')
-        train_dir_src_grad = os.path.join(data_location, 'SYNTHRAD2023_brain_res_128_s_32_pd_2/mr_grad')
-        train_dir_dst = os.path.join(data_location, 'SYNTHRAD2023_brain_res_128_s_32_pd_2/ct')
-        train_dir_dst_grad = os.path.join(data_location, 'SYNTHRAD2023_brain_res_128_s_32_pd_2/ct_grad')
+        train_dir_src = os.path.join(data_location, f'SYNTHRAD2023_brain_res_128_s_32_pd_2_drt_{direction}/mr')
+        train_dir_src_grad = os.path.join(data_location, f'SYNTHRAD2023_brain_res_128_s_32_pd_2_drt_{direction}/mr_grad')
+        train_dir_dst = os.path.join(data_location, f'SYNTHRAD2023_brain_res_128_s_32_pd_2_drt_{direction}/ct')
+        train_dir_dst_grad = os.path.join(data_location, f'SYNTHRAD2023_brain_res_128_s_32_pd_2_drt_{direction}/ct_grad')
     elif imgstr == 'SYNTHRAD2023_PAIR_S_8_PD_2_trg_MR':
-        train_dir_src = os.path.join(data_location, 'SYNTHRAD2023_brain_res_128_s_8_pd_1/ct')
-        train_dir_src_grad = os.path.join(data_location, 'SYNTHRAD2023_brain_res_128_s_8_pd_1/ct_grad')
-        train_dir_dst = os.path.join(data_location, 'SYNTHRAD2023_brain_res_128_s_8_pd_1/mr')
-        train_dir_dst_grad = os.path.join(data_location, 'SYNTHRAD2023_brain_res_128_s_8_pd_1/mr_grad')
+        train_dir_src = os.path.join(data_location, f'SYNTHRAD2023_brain_res_128_s_8_pd_1_drt_{direction}/ct')
+        train_dir_src_grad = os.path.join(data_location, f'SYNTHRAD2023_brain_res_128_s_8_pd_1_drt_{direction}/ct_grad')
+        train_dir_dst = os.path.join(data_location, f'SYNTHRAD2023_brain_res_128_s_8_pd_1_drt_{direction}/mr')
+        train_dir_dst_grad = os.path.join(data_location, f'SYNTHRAD2023_brain_res_128_s_8_pd_1_drt_{direction}/mr_grad')
     elif imgstr == 'SYNTHRAD2023_PAIR_S_8_PD_2_trg_CT':
-        train_dir_src = os.path.join(data_location, 'SYNTHRAD2023_brain_res_128_s_8_pd_1/mr')
-        train_dir_src_grad = os.path.join(data_location, 'SYNTHRAD2023_brain_res_128_s_8_pd_1/mr_grad')
-        train_dir_dst = os.path.join(data_location, 'SYNTHRAD2023_brain_res_128_s_8_pd_1/ct')
-        train_dir_dst_grad = os.path.join(data_location, 'SYNTHRAD2023_brain_res_128_s_8_pd_1/ct_grad')
+        train_dir_src = os.path.join(data_location, f'SYNTHRAD2023_brain_res_128_s_8_pd_1_drt_{direction}/mr')
+        train_dir_src_grad = os.path.join(data_location, f'SYNTHRAD2023_brain_res_128_s_8_pd_1_drt_{direction}/mr_grad')
+        train_dir_dst = os.path.join(data_location, f'SYNTHRAD2023_brain_res_128_s_8_pd_1_drt_{direction}/ct')
+        train_dir_dst_grad = os.path.join(data_location, f'SYNTHRAD2023_brain_res_128_s_8_pd_1_drt_{direction}/ct_grad')
     elif imgstr == 'QTAB_S_8_PD_2_trg_T1':
-        train_dir_src = os.path.join(data_location, 'QTAB_proc_s_8_pd_1/T2w')
-        train_dir_src_grad = os.path.join(data_location, 'QTAB_proc_s_8_pd_1/T2w_grad')
-        train_dir_dst = os.path.join(data_location, 'QTAB_proc_s_8_pd_1/T1w')
-        train_dir_dst_grad = os.path.join(data_location, 'QTAB_proc_s_8_pd_1/T1w_grad')
+        train_dir_src = os.path.join(data_location, f'QTAB_proc_s_8_pd_1_drt_{direction}/T2w')
+        train_dir_src_grad = os.path.join(data_location, f'QTAB_proc_s_8_pd_1_drt_{direction}/T2w_grad')
+        train_dir_dst = os.path.join(data_location, f'QTAB_proc_s_8_pd_1_drt_{direction}/T1w')
+        train_dir_dst_grad = os.path.join(data_location, f'QTAB_proc_s_8_pd_1_drt_{direction}/T1w_grad')
     elif imgstr == 'QTAB_S_8_PD_2_trg_T2':
-        train_dir_src = os.path.join(data_location, 'QTAB_proc_s_8_pd_1/T1w')
-        train_dir_src_grad = os.path.join(data_location, 'QTAB_proc_s_8_pd_1/T1w_grad')
-        train_dir_dst = os.path.join(data_location, 'QTAB_proc_s_8_pd_1/T2w')
-        train_dir_dst_grad = os.path.join(data_location, 'QTAB_proc_s_8_pd_1/T2w_grad')
+        train_dir_src = os.path.join(data_location, f'QTAB_proc_s_8_pd_1_drt_{direction}/T1w')
+        train_dir_src_grad = os.path.join(data_location, f'QTAB_proc_s_8_pd_1_drt_{direction}/T1w_grad')
+        train_dir_dst = os.path.join(data_location, f'QTAB_proc_s_8_pd_1_drt_{direction}/T2w')
+        train_dir_dst_grad = os.path.join(data_location, f'QTAB_proc_s_8_pd_1_drt_{direction}/T2w_grad')
     elif imgstr == 'SYNTHRAD2023_PAIR_PD_2_res_64':
-        train_dir_src = os.path.join(data_location, 'SYNTHRAD2023_brain_res_64_s_8_pd_1/ct')
-        train_dir_src_grad = os.path.join(data_location, 'SYNTHRAD2023_brain_res_64_s_8_pd_1/ct_grad')
-        train_dir_dst = os.path.join(data_location, 'SYNTHRAD2023_brain_res_64_s_8_pd_1/mr')
-        train_dir_dst_grad = os.path.join(data_location, 'SYNTHRAD2023_brain_res_64_s_8_pd_1/mr_grad')
+        train_dir_src = os.path.join(data_location, f'SYNTHRAD2023_brain_res_64_s_8_pd_1_drt_{direction}/ct')
+        train_dir_src_grad = os.path.join(data_location, f'SYNTHRAD2023_brain_res_64_s_8_pd_1_drt_{direction}/ct_grad')
+        train_dir_dst = os.path.join(data_location, f'SYNTHRAD2023_brain_res_64_s_8_pd_1_drt_{direction}/mr')
+        train_dir_dst_grad = os.path.join(data_location, f'SYNTHRAD2023_brain_res_64_s_8_pd_1_drt_{direction}/mr_grad')
     elif imgstr == 'QTAB_PD_2_trg_T1':
-        train_dir_src = os.path.join(data_location, 'QTAB_proc_s_16_pd_2/T2w')
-        train_dir_src_grad = os.path.join(data_location, 'QTAB_proc_s_16_pd_2/T2w_grad')
-        train_dir_dst = os.path.join(data_location, 'QTAB_proc_s_16_pd_2/T1w')
-        train_dir_dst_grad = os.path.join(data_location, 'QTAB_proc_s_16_pd_2/T1w_grad')
+        train_dir_src = os.path.join(data_location, f'QTAB_proc_s_16_pd_2_drt_{direction}/T2w')
+        train_dir_src_grad = os.path.join(data_location, f'QTAB_proc_s_16_pd_2_drt_{direction}/T2w_grad')
+        train_dir_dst = os.path.join(data_location, f'QTAB_proc_s_16_pd_2_drt_{direction}/T1w')
+        train_dir_dst_grad = os.path.join(data_location, f'QTAB_proc_s_16_pd_2_drt_{direction}/T1w_grad')
     elif imgstr == 'QTAB_PD_2_trg_T2':
-        train_dir_src = os.path.join(data_location, 'QTAB_proc_s_16_pd_2/T1w')
-        train_dir_src_grad = os.path.join(data_location, 'QTAB_proc_s_16_pd_2/T1w_grad')
-        train_dir_dst = os.path.join(data_location, 'QTAB_proc_s_16_pd_2/T2w')
-        train_dir_dst_grad = os.path.join(data_location, 'QTAB_proc_s_16_pd_2/T2w_grad')
+        train_dir_src = os.path.join(data_location, f'QTAB_proc_s_16_pd_2_drt_{direction}/T1w')
+        train_dir_src_grad = os.path.join(data_location, f'QTAB_proc_s_16_pd_2_drt_{direction}/T1w_grad')
+        train_dir_dst = os.path.join(data_location, f'QTAB_proc_s_16_pd_2_drt_{direction}/T2w')
+        train_dir_dst_grad = os.path.join(data_location, f'QTAB_proc_s_16_pd_2_drt_{direction}/T2w_grad')
     elif imgstr == 'QTAB_S_32_PD_2_trg_T2':
-        train_dir_src = os.path.join(data_location, 'QTAB_proc_s_32_pd_2/T1w')
-        train_dir_src_grad = os.path.join(data_location, 'QTAB_proc_s_32_pd_2/T1w_grad')
-        train_dir_dst = os.path.join(data_location, 'QTAB_proc_s_32_pd_2/T2w')
-        train_dir_dst_grad = os.path.join(data_location, 'QTAB_proc_s_32_pd_2/T2w_grad')
+        train_dir_src = os.path.join(data_location, f'QTAB_proc_s_32_pd_2_drt_{direction}/T1w')
+        train_dir_src_grad = os.path.join(data_location, f'QTAB_proc_s_32_pd_2_drt_{direction}/T1w_grad')
+        train_dir_dst = os.path.join(data_location, f'QTAB_proc_s_32_pd_2_drt_{direction}/T2w')
+        train_dir_dst_grad = os.path.join(data_location, f'QTAB_proc_s_32_pd_2_drt_{direction}/T2w_grad')
     elif imgstr == 'QTAB_S_32_PD_2_trg_T1':
-        train_dir_src = os.path.join(data_location, 'QTAB_proc_s_32_pd_2/T2w')
-        train_dir_src_grad = os.path.join(data_location, 'QTAB_proc_s_32_pd_2/T2w_grad')
-        train_dir_dst = os.path.join(data_location, 'QTAB_proc_s_32_pd_2/T1w')
-        train_dir_dst_grad = os.path.join(data_location, 'QTAB_proc_s_32_pd_2/T1w_grad')
+        train_dir_src = os.path.join(data_location, f'QTAB_proc_s_32_pd_2_drt_{direction}/T2w')
+        train_dir_src_grad = os.path.join(data_location, f'QTAB_proc_s_32_pd_2_drt_{direction}/T2w_grad')
+        train_dir_dst = os.path.join(data_location, f'QTAB_proc_s_32_pd_2_drt_{direction}/T1w')
+        train_dir_dst_grad = os.path.join(data_location, f'QTAB_proc_s_32_pd_2_drt_{direction}/T1w_grad')
     elif imgstr == 'SYNTHRAD_BRAIN_S_XYZ_64_trg_CT':
-        train_dir_src = os.path.join(data_location, 'SYNTHRAD2023_brain_res_128_s_xyz_64_pd_2/mr')
-        train_dir_src_grad = os.path.join(data_location, 'SYNTHRAD2023_brain_res_128_s_xyz_64_pd_2/mr_grad')
-        train_dir_dst = os.path.join(data_location, 'SYNTHRAD2023_brain_res_128_s_xyz_64_pd_2/ct')
-        train_dir_dst_grad = os.path.join(data_location, 'SYNTHRAD2023_brain_res_128_s_xyz_64_pd_2/ct_grad')
+        train_dir_src = os.path.join(data_location, f'SYNTHRAD2023_brain_res_128_s_xyz_64_pd_2_drt_{direction}/mr')
+        train_dir_src_grad = os.path.join(data_location, f'SYNTHRAD2023_brain_res_128_s_xyz_64_pd_2_drt_{direction}/mr_grad')
+        train_dir_dst = os.path.join(data_location, f'SYNTHRAD2023_brain_res_128_s_xyz_64_pd_2_drt_{direction}/ct')
+        train_dir_dst_grad = os.path.join(data_location, f'SYNTHRAD2023_brain_res_128_s_xyz_64_pd_2_drt_{direction}/ct_grad')
     elif imgstr == 'SYNTHRAD_BRAIN_S_XYZ_64_trg_MR':
-        train_dir_src = os.path.join(data_location, 'SYNTHRAD2023_brain_res_128_s_xyz_64_pd_2/ct')
-        train_dir_src_grad = os.path.join(data_location, 'SYNTHRAD2023_brain_res_128_s_xyz_64_pd_2/ct_grad')
-        train_dir_dst = os.path.join(data_location, 'SYNTHRAD2023_brain_res_128_s_xyz_64_pd_2/mr')
-        train_dir_dst_grad = os.path.join(data_location, 'SYNTHRAD2023_brain_res_128_s_xyz_64_pd_2/mr_grad')
+        train_dir_src = os.path.join(data_location, f'SYNTHRAD2023_brain_res_128_s_xyz_64_pd_2_drt_{direction}/ct')
+        train_dir_src_grad = os.path.join(data_location, f'SYNTHRAD2023_brain_res_128_s_xyz_64_pd_2_drt_{direction}/ct_grad')
+        train_dir_dst = os.path.join(data_location, f'SYNTHRAD2023_brain_res_128_s_xyz_64_pd_2_drt_{direction}/mr')
+        train_dir_dst_grad = os.path.join(data_location, f'SYNTHRAD2023_brain_res_128_s_xyz_64_pd_2_drt_{direction}/mr_grad')
     elif imgstr == 'QTAB_S_XYZ_64_trg_T2':
-        train_dir_src = os.path.join(data_location, 'QTAB_proc_s_xyz_64_pd_2/T1w')
-        train_dir_src_grad = os.path.join(data_location, 'QTAB_proc_s_xyz_64_pd_2/T1w_grad')
-        train_dir_dst = os.path.join(data_location, 'QTAB_proc_s_xyz_64_pd_2/T2w')
-        train_dir_dst_grad = os.path.join(data_location, 'QTAB_proc_s_xyz_64_pd_2/T2w_grad')
+        train_dir_src = os.path.join(data_location, f'QTAB_proc_s_xyz_64_pd_2_drt_{direction}/T1w')
+        train_dir_src_grad = os.path.join(data_location, f'QTAB_proc_s_xyz_64_pd_2_drt_{direction}/T1w_grad')
+        train_dir_dst = os.path.join(data_location, f'QTAB_proc_s_xyz_64_pd_2_drt_{direction}/T2w')
+        train_dir_dst_grad = os.path.join(data_location, f'QTAB_proc_s_xyz_64_pd_2_drt_{direction}/T2w_grad')
     elif imgstr == 'QTAB_S_XYZ_64_trg_T1':
-        train_dir_src = os.path.join(data_location, 'QTAB_proc_s_xyz_64_pd_2/T2w')
-        train_dir_src_grad = os.path.join(data_location, 'QTAB_proc_s_xyz_64_pd_2/T2w_grad')
-        train_dir_dst = os.path.join(data_location, 'QTAB_proc_s_xyz_64_pd_2/T1w')
-        train_dir_dst_grad = os.path.join(data_location, 'QTAB_proc_s_xyz_64_pd_2/T1w_grad')
+        train_dir_src = os.path.join(data_location, f'QTAB_proc_s_xyz_64_pd_2_drt_{direction}/T2w')
+        train_dir_src_grad = os.path.join(data_location, f'QTAB_proc_s_xyz_64_pd_2_drt_{direction}/T2w_grad')
+        train_dir_dst = os.path.join(data_location, f'QTAB_proc_s_xyz_64_pd_2_drt_{direction}/T1w')
+        train_dir_dst_grad = os.path.join(data_location, f'QTAB_proc_s_xyz_64_pd_2_drt_{direction}/T1w_grad')
     else:
         raise NotImplementedError()
 

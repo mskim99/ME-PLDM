@@ -10,6 +10,8 @@ from torch.utils.tensorboard import SummaryWriter
 
 import gdown
 
+#logger path
+l_path = '/data/jayeon/PVDM_recon/results'
 
 class Logger(object):
     """Reference: https://gist.github.com/gyglim/1f8dfb1b5c82627ae3efcfbbadb9f514"""
@@ -18,8 +20,8 @@ class Logger(object):
         # if not os.path.exists("./results/"):
             # os.mkdir("./results/")
 
-        if not os.path.exists("/data/jionkim/PVDM_recon/results/"):
-            os.mkdir("/data/jionkim/PVDM_recon/results/")
+        if not os.path.exists(l_path):
+            os.makedirs(l_path, exist_ok=True)
 
         # if not os.path.exists("/home/work/jionkim/PVDM_recon/results/"):
             # os.mkdir("/home/work/jionkim/PVDM_recon/results/")
@@ -42,7 +44,7 @@ class Logger(object):
     def _make_dir(self, fn):
         # today = datetime.today().strftime("%y%m%d")
         # logdir = f'./results/{fn}/'
-        logdir = f'/data/jionkim/PVDM_recon/results/{fn}/'
+        logdir = f'{l_path}/{fn}/'
         # logdir = f'/home/work/jionkim/PVDM_recon/results/{fn}/'
         # logdir = f'/home/oem/jionkim/PVDM_recon/results/{fn}/'
         # logdir = f'/home/work/workspace/PVDM_recon/results/{fn}/'
