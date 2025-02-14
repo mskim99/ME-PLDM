@@ -25,8 +25,8 @@ parser.add_argument('--batch_size', type=int, default=24)
 parser.add_argument('--ds', type=int, default=4)
 
 """ Args about Model """
-parser.add_argument('--pretrain_config', type=str, default='configs/autoencoder/autoencoder_kl_f4d6_res128.yaml')
-parser.add_argument('--diffusion_config', type=str, default='configs/latent-diffusion/ucf101-ldm-kl-3_res128.yaml')
+parser.add_argument('--pretrain_config', type=str, default='configs/autoencoder/base.yaml')
+parser.add_argument('--diffusion_config', type=str, default='configs/latent-diffusion/base.yaml')
 
 # for GAN resume
 parser.add_argument('--first_stage_folder', type=str, default='', help='the folder of first stage experiment before GAN')
@@ -36,6 +36,8 @@ parser.add_argument('--first_model_src', type=str, default='', help='the path of
 parser.add_argument('--first_model_trg', type=str, default='', help='the path of pretrained model (target)')
 parser.add_argument('--scale_lr', action='store_true')
 
+#gpu setup
+parser.add_argument('--gpu_num', type=int, default=-1, help='index number of gpu')
 
 def main():
     """ Additional args ends here. """
@@ -66,7 +68,7 @@ def main():
         args.ddpmconfig = config.model.params
         args.cond_model = config.model.cond_model
 
-        diffusion(rank=2, args=args)
+        diffusion(rank=2 if args.gpu_num < 0 else args.gpu_num, args=args)
         # else:
             # torch.multiprocessing.spawn(fn=diffusion, args=(args, ), nprocs=args.n_gpus)
 
@@ -82,7 +84,7 @@ def main():
         args.resume     = config.model.resume
         args.amp        = config.model.amp
 
-        first_stage(rank=3, args=args)
+        first_stage(rank=3 if args.gpu_num < 0 else args.gpu_num, args=args)
 
     else:
         raise ValueError("Unknown experiment.")

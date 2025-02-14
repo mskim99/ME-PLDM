@@ -274,7 +274,7 @@ def first_stage_train(rank, model, opt, d_opt, criterion, train_loader, test_loa
             losses = dict()
             losses['L1_loss'] = AverageMeter()
 
-        if it % 250 == 0:
+        if it % 1000 == 0:
             torch.cuda.empty_cache()
             save_image_cond_mask(rank, model, test_loader, it, logger)
             torch.save(model.state_dict(), rootdir + f'model_{it}.pth')
