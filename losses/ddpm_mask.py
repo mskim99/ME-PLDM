@@ -254,6 +254,7 @@ class DDPM(nn.Module):
         img = torch.randn(shape, device=device)
         intermediates = [img]
         for i in tqdm(reversed(range(0, self.num_timesteps)), desc='sampling loop time step'):
+            #print("test")
             img = self.p_sample(img, cond, torch.full((b,), i, device=device, dtype=torch.long),
                                 clip_denoised=self.clip_denoised)
             if i % self.log_every_t == 0 or i == self.num_timesteps - 1:
@@ -291,13 +292,17 @@ class DDPM(nn.Module):
         batch, device, total_timesteps, sampling_timesteps, eta = shape[
                                                                       0], self.betas.device, self.num_timesteps, self.sampling_timesteps, self.ddim_sampling_eta
 
-        times = torch.linspace(-1, total_timesteps - 1,
-                               steps=sampling_timesteps + 1)  # [-1, 0, 1, 2, ..., T-1] when sampling_timesteps == total_timesteps
+        times = torch.linspace(-1, total_timesteps - 1, steps=sampling_timesteps + 1)  # [-1, 0, 1, 2, ..., T-1] when sampling_timesteps == total_timesteps len(arr)==2
         times = list(reversed(times.int().tolist()))
+        # print(times)
+        # print(total_timesteps)
+        # print(sampling_timesteps)
+        # exit(0)
         time_pairs = list(zip(times[:-1], times[1:]))  # [(T-1, T-2), (T-2, T-3), ..., (1, 0), (0, -1)]
 
         img = torch.randn(shape, device=device)
         for time, time_next in tqdm(time_pairs, desc='sampling loop time step'):
+            #print("test")
             time_cond = torch.full((batch,), time, device=device, dtype=torch.long)
             self_cond = img.clone()
             # print(img.shape)

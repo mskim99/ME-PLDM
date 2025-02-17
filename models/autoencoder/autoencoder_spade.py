@@ -51,6 +51,9 @@ class ViTAutoencoder_SPADE(nn.Module):
         return dec
 
     def forward(self, input, cond):
+        # print(input.shape)
+        # print(cond.shape)
+        # exit(0)
         quant = self.encode(input, cond)
         dec = self.decode(quant, cond)
         return dec, 0.

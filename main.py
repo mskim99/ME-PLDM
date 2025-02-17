@@ -38,6 +38,7 @@ parser.add_argument('--scale_lr', action='store_true')
 
 #gpu setup
 parser.add_argument('--gpu_num', type=int, default=-1, help='index number of gpu')
+parser.add_argument('--direction', type=int, default=2, help='direction of image')
 
 def main():
     """ Additional args ends here. """
@@ -49,7 +50,7 @@ def main():
 
     # args.n_gpus = torch.cuda.device_count()
     args.n_gpus = 1
-
+    print(args.direction)
     # init and save configs
     
     """ RUN THE EXP """

@@ -34,6 +34,9 @@ parser.add_argument('--first_model_src', type=str, default='', help='the path of
 parser.add_argument('--first_model_trg', type=str, default='', help='the path of pretrained model (target)')
 parser.add_argument('--scale_lr', action='store_true')
 
+#gpu setup
+parser.add_argument('--gpu_num', type=int, default=-1, help='index number of gpu')
+parser.add_argument('--direction', type=int, default=2, help='direction of image')
 
 def main():
     """ Additional args ends here. """
@@ -63,7 +66,7 @@ def main():
         args.ddpmconfig = config.model.params
         args.cond_model = config.model.cond_model
 
-        diffusion_sample(rank=4, args=args)
+        diffusion_sample(rank=4 if args.gpu_num < 0 else args.gpu_num, args=args)
 
     else:
         raise ValueError("Unknown experiment.")
