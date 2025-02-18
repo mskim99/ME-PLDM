@@ -118,7 +118,7 @@ def set_random_seed(seed):
 
 
 def file_name(args):
-    fn = f'{args.exp}_{args.id}_{args.data}'
+    fn = f'{args.exp}_{args.id}_{args.data}_{["x","y","z"][args.direction]}'
     fn += f'_{args.seed}_2'
     return fn
 

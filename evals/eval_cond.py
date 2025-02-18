@@ -150,13 +150,13 @@ def test_psnr_mask(rank, model, loader, it, logger=None):
     return losses['psnr'].average
 
 
-def save_image_ddpm(rank, ema_model, decoder, it, logger=None, idx_cond=None):
+def save_image_ddpm(rank, ema_model, decoder, it, logger=None, idx_cond=None, steps=100):
     device = torch.device('cuda', rank)
 
     diffusion_model = DDPM(ema_model,
                            channels=ema_model.diffusion_model.in_channels,
                            image_size=ema_model.diffusion_model.image_size,
-                           sampling_timesteps=100,
+                           sampling_timesteps=steps,
                            w=0.).to(device)
 
     with torch.no_grad():
@@ -269,13 +269,13 @@ def save_image_cond_mask(rank, model, loader, it, logger=None):
             print('eval finished')
             return
 
-def save_image_ddpm_cond(rank, ema_model, decoder, it, logger=None):
+def save_image_ddpm_cond(rank, ema_model, decoder, it, logger=None, steps=100):
     device = torch.device('cuda', rank)
 
     diffusion_model = DDPM(ema_model,
                            channels=ema_model.diffusion_model.in_channels,
                            image_size=ema_model.diffusion_model.image_size,
-                           sampling_timesteps=100,
+                           sampling_timesteps=steps,
                            w=0.).to(device)
 
 
@@ -305,7 +305,7 @@ def save_image_ddpm_cond(rank, ema_model, decoder, it, logger=None):
             nib.save(fake_nii, os.path.join(logger.logdir, f'generated_{it}_{idx_cond[0]}.nii.gz'))
             # z_prev = z.clone()
 
-def save_image_ddpm_mask(rank, ema_model, fs_src_model, fs_trg_model, it, loader, logger=None):
+def save_image_ddpm_mask(rank, ema_model, fs_src_model, fs_trg_model, it, loader, logger=None, steps=100):
     if logger is None:
         log_ = print
     else:
@@ -316,7 +316,7 @@ def save_image_ddpm_mask(rank, ema_model, fs_src_model, fs_trg_model, it, loader
     diffusion_model = DDPM(ema_model,
                            channels=ema_model.diffusion_model.in_channels,
                            image_size=ema_model.diffusion_model.image_size,
-                           sampling_timesteps=100,
+                           sampling_timesteps=steps,
                            w=0.).to(device)
 
     fs_src_model.eval()

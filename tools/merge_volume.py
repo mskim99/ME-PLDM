@@ -1,5 +1,7 @@
 import nibabel as nib
 import numpy as np
+import os
+import argparse
 
 '''
 image_data = []
@@ -15,39 +17,64 @@ fake_nii = nib.Nifti1Image(image_data, None)
 nib.save(fake_nii, 'J:/test/test_m.nii.gz')
 '''
 
-# Case 1 : OVERLAPPING (2)
-# Resolution 128
-tres = 128
-z_res = 16
-intv = 2
-image_data = np.zeros([tres, tres, tres])
-prev_idx = 0
-for i in range (0, 9):
-    image_data_p = nib.load('J:/test/generated_25500_' + str(i) + '.nii.gz').get_fdata()
-    image_data_p = 256. * (image_data_p - image_data_p.min()) / (image_data_p.max() - image_data_p.min())
-    # image_data_p = nib.load('J:/Dataset/SynthRAD2023/Task1_proc/brain_64_s_16_pd_2/mask/' + str(i) + '/57_' + str(i).zfill(4) + '_s_8.nii.gz').get_fdata()
-    print(image_data_p.shape)
+parser = argparse.ArgumentParser()
+parser.add_argument('--direction', type=int, default=2, help='direction of image')
 
-    cur_idx = prev_idx + z_res
+##############################
+def main():
+    args = parser.parse_args()
 
-    if i == 0:
-        image_data[:, :, 0:z_res] = image_data_p
-    else:
-        image_data[:, :, prev_idx:prev_idx+intv] = (image_data_p[:, :, 0:intv] + image_data[:, :, prev_idx:prev_idx+intv]) / 2
-        image_data[:, :, prev_idx+intv:cur_idx] = image_data_p[:, :, intv:z_res]
+    # Case 1 : OVERLAPPING (2)
+    # Resolution 128
+    root = f'/data/jayeon/PVDM_recon/results/first_stage_main_SYNTHRAD2023_PAIR_PD_2_trg_CT_y_42_2/'
+    #files = 'generated_49000_{s}.nii.gz'
+    
+    merge(root, 'generated_49000_{s}.nii.gz', args.direction)
+    merge(root, 'real_49000_{s}.nii.gz', args.direction)
+    
+# files = 'real_30000_{s}.nii.gz'
 
-    # image_data[:, :, prev_idx:cur_idx] = image_data_p
+def merge(root, files, direction):
 
-    print(prev_idx)
-    print(cur_idx)
+    tres = 128
+    z_res = 16
+    intv = 2
+    image_data = np.zeros([tres, tres, tres])
+    prev_idx = 0
 
-    prev_idx = cur_idx - intv
+    slices_num = 9
+    direction = 2 # 0,1,2
+    for i in range (0, slices_num):
+        image_data_p = nib.load(os.path.join(root, files.format(s=str(i)))).get_fdata()
+        image_data_p = 256. * (image_data_p - image_data_p.min()) / (image_data_p.max() - image_data_p.min())
+        # image_data_p = nib.load('J:/Dataset/SynthRAD2023/Task1_proc/brain_64_s_16_pd_2/mask/' + str(i) + '/57_' + str(i).zfill(4) + '_s_8.nii.gz').get_fdata()
+        print(image_data_p.shape)
 
-# image_data = image_data.swapaxes(0, 1)
+        cur_idx = prev_idx + z_res
 
-fake_nii = nib.Nifti1Image(image_data, None)
-nib.save(fake_nii, 'J:/test/generated_25500_m.nii.gz')
+        if i == 0:#direction 반영 필요
+            image_data[:, :, 0:z_res] = image_data_p
+        else:
+            image_data[:, :, prev_idx:prev_idx+intv] = (image_data_p[:, :, 0:intv] + image_data[:, :, prev_idx:prev_idx+intv]) / 2
+            image_data[:, :, prev_idx+intv:cur_idx] = image_data_p[:, :, intv:z_res]
+
+        # image_data[:, :, prev_idx:cur_idx] = image_data_p
+
+        
+        print(prev_idx)
+        print(cur_idx)
+
+        prev_idx = cur_idx - intv
+
+    # image_data = image_data.swapaxes(0, 1)
+
+    image_data = np.swapaxes(image_data, direction, image_data.ndim-1)
+    fake_nii = nib.Nifti1Image(image_data, None)
+    nib.save(fake_nii, os.path.join(root, files.format(s='m')))
 # nib.save(fake_nii, 'J:/test/57_grad_m.nii.gz')
+
+if __name__ == '__main__':
+    main()
 
 '''
 image_data = np.zeros([256, 256, 254])

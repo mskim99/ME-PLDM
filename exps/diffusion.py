@@ -79,7 +79,7 @@ def diffusion(rank, args):
     """ Get Image """
     # if rank == 0:
     log_(f"Loading dataset {args.data} with resolution {args.res}")
-    train_loader, _, test_loader = get_loaders(args.data, args.res, args.timesteps, False, args.batch_size, args.n_gpus, args.seed, args.cond_model)
+    train_loader, _, test_loader = get_loaders(args.data, args.res, args.timesteps, False, args.batch_size, args.n_gpus, args.seed, args.cond_model, direction = ['x','y','z'][args.direction])
 
     if args.data == 'SKY':
         cond_prob = 0.2
@@ -94,8 +94,8 @@ def diffusion(rank, args):
     first_stage_model_src = ViTAutoencoder_SPADE(embed_dim=16).to(device)
     first_stage_model_trg = ViTAutoencoder_SPADE(embed_dim=16).to(device)
 
-    first_stage_model_src_ckpt = torch.load(args.first_model_src, map_location='cuda:2')
-    first_stage_model_trg_ckpt = torch.load(args.first_model_trg, map_location='cuda:2')
+    first_stage_model_src_ckpt = torch.load(args.first_model_src, map_location=f'cuda:{rank}')
+    first_stage_model_trg_ckpt = torch.load(args.first_model_trg, map_location=f'cuda:{rank}')
     first_stage_model_src.load_state_dict(first_stage_model_src_ckpt)
     first_stage_model_trg.load_state_dict(first_stage_model_trg_ckpt)
     del first_stage_model_src_ckpt
@@ -104,8 +104,10 @@ def diffusion(rank, args):
     unet = UNetModel(**args.unetconfig)
     model = DiffusionWrapper(unet).to(device)
 
-    if os.path.exists(rootdir + f'model_61000.pth'):
-        model_ckpt = torch.load(rootdir + f'model_61000.pth', map_location='cuda:2')
+    # if os.path.exists(rootdir + f'model_last.pth'): #? 'model_last.pth'
+    #     model_ckpt = torch.load(rootdir + f'model_last.pth', map_location=f'cuda:{rank}')
+    if os.path.exists(rootdir + f'model_61000.pth'): #? 'model_last.pth'
+        model_ckpt = torch.load(rootdir + f'model_61000.pth', map_location=f'cuda:{rank}')
         model.load_state_dict(model_ckpt)
         ema_model = copy.deepcopy(model)
         print('Model loaded')
@@ -123,14 +125,16 @@ def diffusion(rank, args):
                             linear_end=args.ddpmconfig.linear_end,
                             log_every_t=args.ddpmconfig.log_every_t,
                             w=args.ddpmconfig.w,
+                            #timesteps=args.ddpmconfig.sampling_steps,
+                            sampling_timesteps=args.ddpmconfig.sampling_steps,
                             ).to(device)
 
     if args.scale_lr:
         args.lr *= args.batch_size
 
-    opt          = torch.optim.AdamW(model.parameters(), lr=args.lr)
+    opt= torch.optim.AdamW(model.parameters(), lr=args.lr)
 
-    latentDDPM(rank, first_stage_model_src, first_stage_model_trg, model, opt, criterion, train_loader, test_loader, ema_model, logger)
+    latentDDPM(rank, first_stage_model_src, first_stage_model_trg, model, opt, criterion, train_loader, test_loader, ema_model, logger, steps=args.ddpmconfig.sampling_steps)
 
     # if rank == 0:
     torch.save(model.state_dict(), rootdir + f'net_meta.pth')

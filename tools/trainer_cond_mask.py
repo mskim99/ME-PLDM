@@ -16,7 +16,7 @@ from einops import rearrange
 
 import nibabel as nib
 
-def latentDDPM(rank, fs_src_model, fs_trg_model, model, opt, criterion, train_loader, test_loader, ema_model=None, logger=None):
+def latentDDPM(rank, fs_src_model, fs_trg_model, model, opt, criterion, train_loader, test_loader, ema_model=None, logger=None, steps=100):
     if logger is None:
         log_ = print
     else:
@@ -53,9 +53,8 @@ def latentDDPM(rank, fs_src_model, fs_trg_model, model, opt, criterion, train_lo
         z_list_real = []
         diff_loss = 0.
         # z_prev = torch.zeros([16, 16, 4, 16, 16]).cuda()
-
-        for x_idx in range (0, dst.__len__()):
-
+        #print(dst.__len__())
+        for x_idx in range (0, dst.__len__()): #0 to slice num
             d_p = dst[x_idx].to(device)
             d_g_p = dst_grad[x_idx].to(device)
             s_p = src[x_idx].to(device)
@@ -78,7 +77,6 @@ def latentDDPM(rank, fs_src_model, fs_trg_model, model, opt, criterion, train_lo
                     z_d = fs_trg_model.extract(d_p_concat, cond_p)
                     z_s = fs_src_model.extract(s_p_concat, cond_p)
                     z_list_real.append(z_d.detach())
-
             (diff_loss_part, t), loss_dict = criterion(z_d.float(), cond=cond_p.float(), c_s=z_s.float(), c_prev=None)
             # (diff_loss, t), loss_dict = criterion(z_d.float(), cond=cond_p.float(), c_m=None)
 
@@ -148,7 +146,9 @@ def latentDDPM(rank, fs_src_model, fs_trg_model, model, opt, criterion, train_lo
             torch.save(model.state_dict(), rootdir + f'model_{it}.pth')
             ema.copy_to(ema_model)
             torch.save(ema_model.state_dict(), rootdir + f'ema_model_{it}.pth')
-            save_image_ddpm_mask(rank, ema_model, fs_src_model, fs_trg_model, it, test_loader, logger)
+            print("start")
+            save_image_ddpm_mask(rank, ema_model, fs_src_model, fs_trg_model, it, test_loader, logger, steps)
+            print("end")
 
 
 def first_stage_train(rank, model, opt, d_opt, criterion, train_loader, test_loader, first_model, fp, logger=None):
@@ -199,11 +199,14 @@ def first_stage_train(rank, model, opt, d_opt, criterion, train_loader, test_loa
             g_p = rearrange(g_p + 1e-8, 'b t c h w -> b c t h w').float()
 
             x_p_concat = torch.cat([x_p, g_p], dim=1)
-
+            #print(x_p_concat.shape)
             cond_p = cond[x_idx].to(device)
 
             if not disc_opt:
                 with autocast():
+                    # print(x_p_concat.shape)
+                    # print(cond_p)
+                    # exit(0)
                     x_tilde_ra, vq_loss = model(x_p_concat, cond_p)
                     model.zero_grad()
 
@@ -255,7 +258,7 @@ def first_stage_train(rank, model, opt, d_opt, criterion, train_loader, test_loa
                 else:
                     disc_opt = True
 
-        if it % 250 == 0:
+        if it % 1000 == 0:
             psnr = 0.
 
             if logger is not None:
